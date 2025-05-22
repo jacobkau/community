@@ -11,6 +11,7 @@
   --input-border: #ced4da;
   --navbar-bg: #f8f9fa;
   --site-color:#2c3e50;
+  --bubble-color:rgb(169, 178, 192);
   --brand-color:#c2c5c7;
 }
 
@@ -21,6 +22,7 @@
   --text-color: #f8f9fa; 
   --card-bg-2: #4f4f4f;
   --card-bg: #2d2d2d;
+  --bubble-color:rgb(143, 143, 145);
   --border-color: #495057;
   --accent-color: #7289da;
   --secondary-text: #adb5bd;

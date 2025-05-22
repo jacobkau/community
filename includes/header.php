@@ -14,6 +14,9 @@
     <!-- Font Awesome Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/glightbox/dist/css/glightbox.min.css" rel="stylesheet" />
+<script src="https://cdn.jsdelivr.net/npm/glightbox/dist/js/glightbox.min.js"></script>
+
     <link rel="shortcut icon" href="logo.jpg" type="image/x-icon">
 
     <link rel="stylesheet" href="./assets/css/style.css">
@@ -51,6 +54,11 @@
                             <li class="nav-item">
                                 <a class="nav-link active" id="nav-link" href="/community/privacy.php">
                                     <i class="bi bi-shield-lock"></i> Privacy Policy
+                                </a>
+                            </li>
+                             <li class="nav-item">
+                                <a class="nav-link active" id="nav-link" href="/community/new/post.php">
+                                    <i class="bi bi-shield-lock"></i> Test
                                 </a>
                             </li>
                             <li class="nav-item">

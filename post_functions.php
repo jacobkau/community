@@ -34,154 +34,198 @@
     });
 
 
-    //=================================//
-    // POST EDITING AND HANDLING EVENTS //
-    //=================================// 
-    document.querySelectorAll('.edit-post').forEach(button => {
-        button.addEventListener('click', function() {
-            const postId = this.dataset.postId;
-            const postDiv = document.getElementById(`post-${postId}`);
-            const content = postDiv.querySelector('.post-content').textContent;
-            const image = postDiv.querySelector('.post-image img')?.src;
 
-            // Create edit form
-            const form = document.createElement('form');
-            form.innerHTML = `
-    <input type="hidden" name="edit_post" value="1">
-    <input type="hidden" name="post_id" value="${postId}">
-    <div class="mb-3">
-        <textarea class="form-control" name="content" rows="3">${content.trim()}</textarea>
-    </div>
-    ${image ? `
-    <div class="current-image mb-3">
-        <img src="${image}" class="img-thumbnail" style="max-height: 200px;">
-        <div class="form-check">
-            <input class="form-check-input" type="checkbox" name="remove_image" id="remove-${postId}">
-            <label class="form-check-label" for="remove-${postId}">Remove image</label>
-        </div>
-    </div>` : ''}
+
+
+
+
+
+
+
+
+
+
+
+
+
     
-    ${video ? `
-    <div class="current-video mb-3">
-        <video controls class="img-thumbnail" style="max-height: 200px;">
-            <source src="${video}" type="video/mp4">
-            Your browser does not support the video tag.
-        </video>
-        <div class="form-check">
-            <input class="form-check-input" type="checkbox" name="remove_video" id="remove-video-${postId}">
-            <label class="form-check-label" for="remove-video-${postId}">Remove video</label>
-        </div>
-    </div>` : ''}
+document.querySelectorAll('.edit-post').forEach(button => {
+    button.addEventListener('click', function() {
+        const postId = this.dataset.postId;
+        const postDiv = document.getElementById(`post-${postId}`);
+        const contentDiv = postDiv.querySelector('.post-content');
+        const mediaContainer = postDiv.querySelector('.post-media');
 
-    <div class="mb-3">
-        <input type="file" class="form-control" name="new_image" accept="image/*">
-    </div>
-    <div class="mb-3">
-        <input type="file" class="form-control" name="new_video" accept="video/*">
-    </div>
-    
-    <input type="hidden" name="csrf_token" value="${this.dataset.csrfToken}">
-    <button type="submit" class="btn btn-primary">Save</button>
-    <button type="button" class="btn btn-secondary cancel-edit">Cancel</button>
-`;
-
-            // Replace content with form
-            postDiv.querySelector('.post-content').replaceWith(form);
-
-            // Handle form submission
-            // Handle form submission in edit
-            form.addEventListener('submit', async (e) => {
-                e.preventDefault();
-                const formData = new FormData(form);
-
-                try {
-                    const response = await fetch(window.location.href, {
-                        method: 'POST',
-                        body: formData
-                    });
-
-                    const result = await response.json();
-
-                    if (result.error) throw new Error(result.error);
-
-                    // Update content
-                    const contentDiv = document.createElement('div');
-                    contentDiv.className = 'post-content mb-3';
-                    contentDiv.innerHTML = result.content;
-                    form.replaceWith(contentDiv);
-
-                    // Update image
-                    const imgContainer = postDiv.querySelector('.post-image');
-                    if (result.image_path) {
-                        if (!imgContainer) {
-                            imgContainer = document.createElement('div');
-                            imgContainer.className = 'post-image mb-3';
-                            postDiv.insertBefore(imgContainer, contentDiv.nextSibling);
-                        }
-                        imgContainer.innerHTML =
-                            `<img src="${result.image_path}" class="img-fluid rounded">`;
-                    } else if (imgContainer) {
-                        imgContainer.remove();
-                    }
-
-                    // Update timestamp
-                    const timeElement = postDiv.querySelector('.post-time');
-                    if (timeElement) {
-                        timeElement.textContent = result.updated_at;
-                    }
-
-                } catch (error) {
-                    alert(error.message);
-                    console.error('Error:', error);
-                }
-            });
-            // Handle cancel
-            form.querySelector('.cancel-edit').addEventListener('click', () => {
-                const contentDiv = document.createElement('div');
-                contentDiv.className = 'post-content mb-3';
-                contentDiv.textContent = content;
-                form.replaceWith(contentDiv);
-
-                if (image) {
-                    postDiv.querySelector('.post-image').style.display = 'block';
-                }
-            });
+        // Collect existing media items for editing
+        const mediaItems = Array.from(mediaContainer?.querySelectorAll('[data-media-id]') || []).map(item => {
+            const mediaElement = item.querySelector('img, video');
+            return {
+                id: item.dataset.mediaId,
+                type: mediaElement.tagName.toLowerCase(),
+                src: mediaElement.src || mediaElement.querySelector('source')?.src
+            };
         });
-    });
 
-    //============ DELETE POST HANDLER ================
-    document.querySelectorAll('.delete-post').forEach(button => {
-        button.addEventListener('click', async function() {
-            if (!confirm('Are you sure you want to delete this post?')) return;
+        // Create edit form with hidden edit_post input for backend detection
+        const form = document.createElement('form');
+        form.className = 'edit-post-form';
+        form.enctype = "multipart/form-data"; // important for file upload
+        form.innerHTML = `
+            <input type="hidden" name="edit_post" value="1">
+            <div class="post-content-edit">
+                <textarea name="content" rows="5" style="width: 100%;">${contentDiv.textContent.trim()}</textarea>
 
-            const postId = this.dataset.postId;
-            const csrfToken = this.dataset.csrfToken;
+                <div class="edit-media-grid" style="display:flex; flex-wrap: wrap; gap: 10px; margin-top: 10px;">
+                    ${mediaItems.map(media => `
+                        <div class="edit-media-item" style="position: relative; width: 150px;">
+                            ${media.type === 'img' ? 
+                                `<img src="${media.src}" class="edit-media-preview" style="width:100%; height: auto; border-radius: 5px;">` : 
+                                `<video class="edit-media-preview" controls style="width:100%; border-radius: 5px;">
+                                    <source src="${media.src}">
+                                </video>`}
+                            <label style="display:block; margin-top: 5px; cursor: pointer; font-size: 0.9em;">
+                                <input type="checkbox" name="remove_media[]" value="${media.id}"> Remove
+                            </label>
+                        </div>
+                    `).join('')}
+                </div>
+
+                <div class="new-media-upload" style="margin-top: 10px;">
+                    <label for="new-media-files">Add new media:</label>
+                    <input id="new-media-files" type="file" name="new_media[]" multiple accept="image/*,video/*" style="display: block; margin-top: 5px;">
+                </div>
+
+                <div class="form-controls" style="margin-top: 15px;">
+                    <button type="submit" style="padding: 8px 15px;">Save</button>
+                    <button type="button" class="cancel-edit" style="padding: 8px 15px; margin-left: 10px;">Cancel</button>
+                </div>
+            </div>
+        `;
+
+        // Hide original media container to avoid confusion
+        if (mediaContainer) mediaContainer.style.display = 'none';
+
+        // Replace content div with form
+        contentDiv.replaceWith(form);
+
+        // Cancel edit handler restores original content & media visibility
+        form.querySelector('.cancel-edit').addEventListener('click', () => {
+            form.replaceWith(contentDiv);
+            if (mediaContainer) mediaContainer.style.display = 'flex';
+        });
+
+        // Submit form via AJAX with files and data
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const formData = new FormData(form);
+            formData.append('post_id', postId);
 
             try {
-                const response = await fetch(window.location.href, {
+                const response = await fetch('ajax/edit_post.php', {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/x-www-form-urlencoded',
-                    },
-                    body: new URLSearchParams({
-                        delete_post: '1',
-                        post_id: postId,
-                        csrf_token: csrfToken
-                    })
+                    body: formData
                 });
 
                 const result = await response.json();
-                if (!result.success) throw new Error(result.error || 'Failed to delete post');
 
-                // Remove post from DOM
-                document.getElementById(`post-${postId}`).remove();
-
+                if (result.success) {
+                    alert(result.message || 'Post updated successfully!');
+                    window.location.reload();  // You can replace this with smarter DOM update if you want
+                } else {
+                    alert('Error: ' + (result.message || 'Unknown error'));
+                }
             } catch (error) {
-                console.error('Delete error:', error);
-                alert(error.message);
+                console.error('Update error:', error);
+                alert('An error occurred while updating the post.');
             }
         });
     });
+});
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    
+    /*=======================================
+             DELETE POST HANDLING
+    =========================================*/
+    document.querySelectorAll('.delete-post').forEach(button => {
+    button.addEventListener('click', async function() {
+        if (!confirm('Are you sure you want to delete this post?')) return;
+
+        const postId = this.dataset.postId;
+        const csrfToken = this.dataset.csrf;
+
+        try {
+            const response = await fetch('ajax/delete_post.php', {  // Specific endpoint
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: new URLSearchParams({
+                    delete_post: 1,
+                    post_id: postId,
+                    csrf_token: csrfToken
+                })
+            });
+
+            const result = await response.json();
+
+            if (!result.success) {
+                throw new Error(result.message || 'Failed to delete post');
+            }
+
+            // Remove post and check if container is empty
+            const postElement = document.getElementById(`post-${postId}`);
+            postElement.remove();
+            
+            const container = document.getElementById('posts-container');
+            if (container.children.length === 0) {
+                container.innerHTML = `<div class="alert alert-info">No posts found</div>`;
+            }
+
+        } catch (error) {
+            console.error('Delete error:', error);
+            alert(error.message);
+        }
+    });
+});
+
 
     //========== FUNCTION TO CREATE COMMENT ELEMENT ============//
 
@@ -321,15 +365,6 @@
 
 
 
-
-    //======================
-    // LIKE COMMENT SECTION//
-    //======================
-
-
-
-
-
     //===========================
     // DELETE COMMENT
     //==============================
@@ -396,35 +431,61 @@
         // =========================================================================
         $(document).on('click', '.edit-comment', function() {
             const commentId = $(this).data('comment-id');
-            const commentElement = $(`#comment-${commentId}`).find('.comment-content');
-            const currentContent = commentElement.text().trim();
 
-            // Replace content with a textarea for editing
-            const inputField = $('<textarea>', {
-                class: 'form-control edit-input w-100', // Added w-100 to make it take the full container width
-                'data-comment-id': commentId,
-                val: currentContent,
-                rows: 3
-            });
+            // More precise targeting - goes directly to the comment bubble content
+            const commentContent = $(`#main-comment-${commentId}`)
+                .find('> .d-flex > .flex-grow-1 > .comment-bubble > .comment-content');
 
-            commentElement.replaceWith(inputField);
+            const currentContent = commentContent.text().trim();
 
-            // Change "Edit" button to "Save"
-            $(this).replaceWith(
-                $('<button>', {
-                    class: 'btn btn-sm btn-success save-comment',
-                    'data-comment-id': commentId,
-                    html: '<i class="far fa-save"></i> Save'
-                })
-            );
+            // Create edit interface
+            const editHtml = `
+        <textarea class="form-control edit-comment-field mb-2" rows="3">${currentContent}</textarea>
+        <div class="edit-actions d-flex gap-2 mt-2">
+            <button class="btn btn-sm btn-primary save-edit" data-comment-id="${commentId}">
+                <i class="fas fa-save"></i> Save
+            </button>
+            <button class="btn btn-sm btn-outline-secondary cancel-edit" data-comment-id="${commentId}">
+                <i class="fas fa-times"></i> Cancel
+            </button>
+        </div>
+    `;
+
+            // Store original content and replace with edit interface
+            commentContent.data('original', currentContent).html(editHtml);
+
+            // Hide other action buttons during edit
+            $(this).closest('.comment-actions').find('button').hide();
         });
 
-        $(document).on('click', '.save-comment', function() {
-            const commentId = $(this).data('comment-id');
-            const inputField = $(`#comment-${commentId}`).find('.edit-input');
-            const newContent = inputField.val().trim();
+        function nl2br(str) {
+            return str.replace(/\n/g, '<br>');
+        }
 
-            // Send AJAX request to update comment
+        function htmlspecialchars(str) {
+            return str
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+
+        $(document).on('click', '.save-edit', function() {
+            const saveButton = $(this);
+            const commentId = saveButton.data('comment-id');
+            const commentContainer = $(`#main-comment-${commentId}`);
+            const editField = commentContainer.find('.edit-comment-field');
+            const newContent = editField.val().trim();
+
+            if (!newContent) {
+                alert('Comment cannot be empty');
+                return;
+            }
+
+            const originalButtonHtml = saveButton.html();
+            saveButton.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Saving...');
+
             $.ajax({
                 url: 'ajax/edit_comment.php',
                 method: 'POST',
@@ -436,42 +497,50 @@
                 },
                 success: function(response) {
                     if (response.success) {
-                        const updatedContent = $('<span>', {
-                            class: 'comment-content',
-                            text: newContent
-                        });
+                        // VERY SPECIFIC selector to target only the main comment content
+                        commentContainer.find('> .d-flex > .flex-grow-1 > .comment-bubble > .comment-content')
+                            .html(nl2br(htmlspecialchars(newContent)))
+                            .append(' <span class="text-muted small">(edited)</span>');
 
-                        inputField.replaceWith(updatedContent);
-
-                        // Restore "Edit" button
-                        $(`[data-comment-id="${commentId}"].save-comment`).replaceWith(
-                            $('<button>', {
-                                class: 'btn btn-sm btn-outline-warning edit-comment',
-                                'data-comment-id': commentId,
-                                html: '<i class="far fa-edit"></i> Edit'
-                            })
-                        );
+                        // Clean up edit interface
+                        commentContainer.find('.edit-comment-field, .edit-actions').remove();
+                        commentContainer.find('.comment-actions button').show();
                     } else {
-                        alert(response.message || 'Failed to update comment.');
+                        alert(response.message || 'Failed to update comment');
+                        // Re-enable button if failed
+                        saveButton.prop('disabled', false).html('<i class="fas fa-save"></i> Save');
                     }
                 },
-                error: function() {
-                    alert('Error communicating with the server.');
+                complete: function(xhr) {
+                    saveButton.prop('disabled', false).html(originalButtonHtml);
+                    if (!xhr.responseJSON || xhr.responseJSON.success) {
+                        commentContainer.find('.comment-actions button').show();
+                        commentContainer.find('.edit-comment-field, .edit-actions').remove();
+                    }
                 }
             });
         });
 
-        // =========================================================================
-        //  Reply Comment Functionality
-        //======================================
 
+        $(document).on('click', '.cancel-edit', function() {
+            const commentId = $(this).data('comment-id');
+            const commentContainer = $(`#comment-${commentId}`);
 
+            // Restore original content
+            const originalContent = commentContainer.find('.comment-content').data('original');
+            commentContainer.find('.comment-bubble .comment-content')
+                .html(nl2br(htmlspecialchars(originalContent)));
 
-        // =========================================================================
-        //  Handle Reply Submission via AJAX
-        // =========================================================================
+            // Restore action buttons
+            commentContainer.find('.comment-actions button').show();
 
+            // Remove edit interface
+            commentContainer.find('.edit-comment-field, .edit-actions').remove();
+        });
     });
+
+
+
 
 
 
@@ -609,6 +678,41 @@
     });
 
     // ============Hightlight post ============
+ document.addEventListener('DOMContentLoaded', function() {
+            const lightbox = GLightbox({
+                selector: '.glightbox'
+            });
+        });
 
+        function openLightbox(galleryId) {
+            const lightbox = GLightbox({
+                selector: `[data-gallery="${galleryId}"]`
+            });
+            lightbox.open();
+        }
+        // Helper functions for reactions
+        function getReactionIcon(reaction) {
+            const icons = {
+                'like': 'bi-hand-thumbs-up-fill',
+                'love': 'bi-heart-fill',
+                'haha': 'bi-emoji-laughing-fill',
+                'wow': 'bi-emoji-surprise-fill',
+                'sad': 'bi-emoji-frown-fill',
+                'angry': 'bi-emoji-angry-fill'
+            };
+            return icons[reaction] || 'bi-hand-thumbs-up-fill';
+        }
+
+        function getReactionText(reaction) {
+            const texts = {
+                'like': 'Like',
+                'love': 'Love',
+                'haha': 'Haha',
+                'wow': 'Wow',
+                'sad': 'Sad',
+                'angry': 'Angry'
+            };
+            return texts[reaction] || 'Like';
+        }
     //============ View more comments =========
 </script>
