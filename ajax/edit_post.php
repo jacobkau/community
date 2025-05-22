@@ -18,7 +18,14 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST' || !isset($_POST['edit_post'])) {
 $postId = (int)($_POST['post_id'] ?? 0);
 $userId = (int)$_SESSION['user_id'];
 $content = trim($_POST['content'] ?? '');
-$removeMedia = array_filter($_POST['remove_media'] ?? [], 'is_numeric');
+
+// Process media removal - improved handling
+$removeMedia = isset($_POST['remove_media']) ? 
+    array_map('intval', (array)$_POST['remove_media']) : 
+    [];
+$removeMedia = array_filter($removeMedia, function($id) {
+    return $id > 0;
+});
 
 try {
     // Verify post ownership
@@ -36,6 +43,8 @@ try {
     // Process media removal
     if (!empty($removeMedia)) {
         $placeholders = implode(',', array_fill(0, count($removeMedia), '?'));
+        
+        // Get media to delete
         $stmt = $pdo->prepare("
             SELECT id, file_path 
             FROM post_media 
@@ -45,6 +54,7 @@ try {
         $stmt->execute(array_merge($removeMedia, [$postId]));
         $mediaToDelete = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
+        // Delete from database
         $stmt = $pdo->prepare("
             DELETE FROM post_media 
             WHERE id IN ($placeholders)
@@ -52,16 +62,21 @@ try {
         ");
         $stmt->execute(array_merge($removeMedia, [$postId]));
 
+        // Delete files
         foreach ($mediaToDelete as $media) {
             $filePath = realpath(__DIR__ . '/../' . $media['file_path']);
             if ($filePath && is_writable($filePath)) {
-                unlink($filePath);
+                if (!unlink($filePath)) {
+                    error_log("Failed to delete file: " . $filePath);
+                }
+            } else {
+                error_log("File not found or not writable: " . ($filePath ?? $media['file_path']));
             }
         }
     }
 
     // Process new media uploads
-    if (!empty($_FILES['new_media'])) {
+    if (!empty($_FILES['new_media']['tmp_name'][0])) {
         $uploadDir = __DIR__ . '/../uploads/posts/';
         if (!is_dir($uploadDir)) {
             mkdir($uploadDir, 0755, true);

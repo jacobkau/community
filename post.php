@@ -11,45 +11,70 @@ if (!isset($_SESSION['user_id'])) {
 }
 
 // Get pagination parameters
-$lastPostId = isset($_GET['last_post_id']) ? (int)$_GET['last_post_id'] : null;
+$page = isset($_GET['page']) ? max(1, (int)$_GET['page']) : 1;
 $limit = 10; // Number of posts to load at once
+$offset = ($page - 1) * $limit;
 $userId = (int)$_SESSION['user_id'];
 $isAdmin = $_SESSION['is_admin'] ?? false;
 
 try {
+    // First get posts without media
     $postsQuery = $pdo->prepare("
-    SELECT 
-        posts.id,
-        posts.user_id,
-        posts.content,
-        posts.created_at,
-        users.username,
-        users.profile_pic,
-        GROUP_CONCAT(DISTINCT post_media.file_path) AS media_paths,
-        COUNT(DISTINCT likes.id) AS like_count,
-        COUNT(DISTINCT comments.id) AS comment_count,
-        COUNT(DISTINCT shares.id) AS share_count,
-        EXISTS(
-            SELECT 1 FROM likes 
-            WHERE likes.post_id = posts.id AND likes.user_id = :user_id
-        ) AS has_liked
-    FROM posts
-    JOIN users ON posts.user_id = users.id
-    LEFT JOIN post_media ON posts.id = post_media.post_id
-    LEFT JOIN likes ON posts.id = likes.post_id
-    LEFT JOIN shares ON posts.id = shares.post_id
-    LEFT JOIN comments ON posts.id = comments.post_id AND comments.parent_id IS NULL
-    GROUP BY posts.id
-    ORDER BY posts.created_at DESC
-    LIMIT :limit OFFSET :offset
-");
-
+        SELECT 
+            posts.id,
+            posts.user_id,
+            posts.content,
+            posts.created_at,
+            users.username,
+            users.profile_pic,
+            COUNT(DISTINCT likes.id) AS like_count,
+            COUNT(DISTINCT comments.id) AS comment_count,
+            COUNT(DISTINCT shares.id) AS share_count,
+            EXISTS(
+                SELECT 1 FROM likes 
+                WHERE likes.post_id = posts.id AND likes.user_id = :user_id
+            ) AS has_liked
+        FROM posts
+        JOIN users ON posts.user_id = users.id
+        LEFT JOIN likes ON posts.id = likes.post_id
+        LEFT JOIN shares ON posts.id = shares.post_id
+        LEFT JOIN comments ON posts.id = comments.post_id AND comments.parent_id IS NULL
+        GROUP BY posts.id
+        ORDER BY posts.created_at DESC
+        LIMIT :limit OFFSET :offset
+    ");
 
     $postsQuery->bindParam(':limit', $limit, PDO::PARAM_INT);
     $postsQuery->bindParam(':offset', $offset, PDO::PARAM_INT);
     $postsQuery->bindParam(':user_id', $userId, PDO::PARAM_INT);
     $postsQuery->execute();
     $posts = $postsQuery->fetchAll(PDO::FETCH_ASSOC);
+
+    // Get media for all fetched posts in one query
+    if (!empty($posts)) {
+        $postIds = array_column($posts, 'id');
+        $placeholders = implode(',', array_fill(0, count($postIds), '?'));
+        
+        $mediaQuery = $pdo->prepare("
+            SELECT id, post_id, file_path, media_type
+            FROM post_media
+            WHERE post_id IN ($placeholders)
+            ORDER BY post_id, id
+        ");
+        $mediaQuery->execute($postIds);
+        $allMedia = $mediaQuery->fetchAll(PDO::FETCH_ASSOC);
+        
+        // Organize media by post_id
+        $mediaByPost = [];
+        foreach ($allMedia as $media) {
+            $mediaByPost[$media['post_id']][] = $media;
+        }
+        
+        // Attach media to posts
+        foreach ($posts as &$post) {
+            $post['media'] = $mediaByPost[$post['id']] ?? [];
+        }
+    }
 
     // Get total posts count (for pagination)
     if ($offset === 0) {
@@ -61,13 +86,11 @@ try {
 }
 
 // Helper function to format date
-function format_date($datetime)
-{
+function format_date($datetime) {
     $timestamp = strtotime($datetime);
     if (!$timestamp) return htmlspecialchars($datetime);
     return date("M d, Y H:i", $timestamp);
 }
-
 ?>
 
 <!DOCTYPE html>
@@ -135,7 +158,6 @@ function format_date($datetime)
             justify-content: center;
         }
 
-
         .post-media a {
             flex: 1 0 48%;
             max-width: 48%;
@@ -177,15 +199,12 @@ function format_date($datetime)
 
 <body>
     <div class="container mt-4">
-        <?php if (empty($posts) && !isset($_GET['last_post_id'])): ?>
+        <?php if (empty($posts) && !isset($_GET['page'])): ?>
             <div class="alert alert-info">No posts yet. Be the first to post something!</div>
         <?php endif; ?>
 
         <div id="posts-container">
-            <?php foreach ($posts as $post):
-                $stmtMedia = $pdo->prepare("SELECT media_type, file_path FROM post_media WHERE post_id = ?");
-                $stmtMedia->execute([$post['id']]);
-                $post['media'] = $stmtMedia->fetchAll(PDO::FETCH_ASSOC); ?>
+            <?php foreach ($posts as $post): ?>
                 <div class="post card mb-4" id="post-<?= htmlspecialchars($post['id']) ?>"
                     data-post-id="<?= htmlspecialchars($post['id']) ?>"
                     style="color:var(--text-color);background-color: var(--card-bg); border-color: var(--border-color);border-radius:10px">
@@ -243,7 +262,6 @@ function format_date($datetime)
                             <?= nl2br(htmlspecialchars($post['content'])) ?>
                         </div>
 
-
                         <?php if (!empty($post['media'])): ?>
                             <div class="post-media d-flex flex-wrap gap-2 mt-3" style="position: relative;">
                                 <?php
@@ -253,7 +271,7 @@ function format_date($datetime)
                                     if ($index >= $maxToShow) break;
                                     $mediaUrl = htmlspecialchars($media['file_path']);
                                     $mediaType = $media['media_type'];
-                                    $mediaId = isset($media['id']) ? htmlspecialchars($media['id']) : $index;
+                                    $mediaId = (int)$media['id'];
                                 ?>
                                     <div data-media-id="<?= $mediaId ?>" class="edit-media-wrapper">
                                         <a href="<?= $mediaUrl ?>" class="glightbox" data-gallery="post-<?= $post['id'] ?>">
@@ -277,10 +295,6 @@ function format_date($datetime)
                                 <?php endif; ?>
                             </div>
                         <?php endif; ?>
-
-
-
-
 
                         <!-- Post Stats -->
                         <div class="d-flex justify-content-between mb-3" style="color:var(--text-color)">
@@ -315,7 +329,6 @@ function format_date($datetime)
                                     <div class="reaction-option" data-reaction="sad">😢</div>
                                     <div class="reaction-option" data-reaction="angry">😡</div>
                                 </div>
-
                             </div>
                             <button class="btn btn-sm btn-outline-secondary toggle-comments"
                                 data-post-id="<?= $post['id'] ?>">
@@ -326,12 +339,13 @@ function format_date($datetime)
                                 <i class="fas fa-share"></i> Share
                             </button>
                         </div>
+                        
                         <!-- Comments Section (Initially Hidden) -->
                         <div class="comments-section" id="comments-<?= $post['id'] ?>" style="display: none;">
                             <!-- Existing Comments (Loaded via AJAX if needed) -->
                             <div class="comments-list mb-3" id="comments-list-<?= $post['id'] ?>"></div>
 
-                            <!-- Comment Input Field (Initially Hidden) -->
+                            <!-- Comment Input Field -->
                             <form class="comment-form mt-3" data-post-id="<?= $post['id'] ?>">
                                 <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token']) ?>">
                                 <div class="input-group">
@@ -353,122 +367,141 @@ function format_date($datetime)
         </div>
 
         <div class="text-center py-3" id="load-more-container">
-            <?php if (!empty($posts)): ?>
-                <button class="btn btn-primary" id="load-more-btn"
-                    data-last-post-id="<?= end($posts)['id'] ?>">
+            <?php if (!empty($posts) && ($offset + $limit) < $totalPosts): ?>
+                <a href="?page=<?= $page + 1 ?>" class="btn btn-primary" id="load-more-btn">
                     Load More Posts
-                </button>
+                </a>
             <?php endif; ?>
         </div>
     </div>
 
-</body>
+    <script>
+        $(document).ready(function() {
+            // Toggle comments section when "Comment" button is clicked
+            $('.toggle-comments').click(function() {
+                const postId = $(this).data('post-id');
+                const commentsSection = $('#comments-' + postId);
 
-</html>
-<script>
-    $(document).ready(function() {
-        // Toggle comments section when "Comment" button is clicked
-        $('.toggle-comments').click(function() {
-            const postId = $(this).data('post-id');
-            const commentsSection = $('#comments-' + postId);
+                // Toggle visibility
+                commentsSection.toggle();
 
-            // Toggle visibility
-            commentsSection.toggle();
-
-            // Load comments if not already loaded
-            if (commentsSection.is(':visible') && $('#comments-list-' + postId).is(':empty')) {
-                loadComments(postId);
-            }
-        });
-        // Submit comment via AJAX
-        $('.comment-form').submit(function(e) {
-            e.preventDefault();
-            const form = $(this);
-            const postId = form.data('post-id');
-
-            $.ajax({
-                url: 'ajax/add_comment.php',
-                type: 'POST',
-                data: form.serialize(),
-                success: function(response) {
-                    form.find('textarea').val(''); // Clear input
-                    loadComments(postId); // Refresh comments
-                },
-                error: function(xhr, status, error) {
-                    console.error("Error posting comment:", error);
+                // Load comments if not already loaded
+                if (commentsSection.is(':visible') && $('#comments-list-' + postId).is(':empty')) {
+                    loadComments(postId);
                 }
             });
-        });
-        // Load comments via AJAX
-        function loadComments(postId) {
-            $.ajax({
-                url: 'ajax/load_comments.php',
-                type: 'GET',
-                data: {
-                    post_id: postId
-                },
-                success: function(response) {
-                    $('#comments-list-' + postId).html(response);
-                },
-                error: function(xhr, status, error) {
-                    console.error("Error loading comments:", error);
-                }
-            });
-        }
-    });
-    $(document).ready(function() {
-        const csrfToken = '<?= $_SESSION['csrf_token'] ?>';
 
-        // Show reaction options on hover
-        $('.reaction-btn').hover(
-            function() {
-                $(this).find('.reaction-options').addClass('show');
-            },
-            function() {
-                $(this).find('.reaction-options').removeClass('show');
-            }
-        );
+            // Submit comment via AJAX
+            $('.comment-form').submit(function(e) {
+                e.preventDefault();
+                const form = $(this);
+                const postId = form.data('post-id');
 
-        // Handle reaction selection
-        $('.reaction-option').click(function(e) {
-            e.stopPropagation();
-            const reactionBtn = $(this).closest('.reaction-btn');
-            const postId = reactionBtn.closest('.post').data('post-id');
-            const reaction = $(this).data('reaction');
-
-            // Update UI immediately
-            reactionBtn.find('.like-post i').removeClass('bi-hand-thumbs-up bi-hand-thumbs-up-fill')
-                .addClass(getReactionIcon(reaction));
-            reactionBtn.find('.like-post').text(getReactionText(reaction));
-
-            // Hide options
-            reactionBtn.find('.reaction-options').removeClass('show');
-
-            // Send to server
-            $.ajax({
-                url: 'ajax/save_reaction.php',
-                method: 'POST',
-                data: {
-                    post_id: postId,
-                    reaction: reaction,
-                    csrf_token: csrfToken
-                },
-                success: function(response) {
-                    if (response.success) {
-                        // Update reaction count
-                        reactionBtn.find('.reaction-count').text(response.total_reactions);
-
-                        // Update like button state
-                        reactionBtn.find('.like-post')
-                            .removeClass('btn-outline-primary')
-                            .addClass('btn-primary');
+                $.ajax({
+                    url: 'ajax/add_comment.php',
+                    type: 'POST',
+                    data: form.serialize(),
+                    success: function(response) {
+                        form.find('textarea').val(''); // Clear input
+                        loadComments(postId); // Refresh comments
+                    },
+                    error: function(xhr, status, error) {
+                        console.error("Error posting comment:", error);
                     }
-                }
+                });
             });
+
+            // Load comments via AJAX
+            function loadComments(postId) {
+                $.ajax({
+                    url: 'ajax/load_comments.php',
+                    type: 'GET',
+                    data: {
+                        post_id: postId
+                    },
+                    success: function(response) {
+                        $('#comments-list-' + postId).html(response);
+                    },
+                    error: function(xhr, status, error) {
+                        console.error("Error loading comments:", error);
+                    }
+                });
+            }
+
+            const csrfToken = '<?= $_SESSION['csrf_token'] ?>';
+
+            // Show reaction options on hover
+            $('.reaction-btn').hover(
+                function() {
+                    $(this).find('.reaction-options').addClass('show');
+                },
+                function() {
+                    $(this).find('.reaction-options').removeClass('show');
+                }
+            );
+
+            // Handle reaction selection
+            $('.reaction-option').click(function(e) {
+                e.stopPropagation();
+                const reactionBtn = $(this).closest('.reaction-btn');
+                const postId = reactionBtn.closest('.post').data('post-id');
+                const reaction = $(this).data('reaction');
+
+                // Update UI immediately
+                reactionBtn.find('.like-post i').removeClass('bi-hand-thumbs-up bi-hand-thumbs-up-fill')
+                    .addClass(getReactionIcon(reaction));
+                reactionBtn.find('.like-post').text(getReactionText(reaction));
+
+                // Hide options
+                reactionBtn.find('.reaction-options').removeClass('show');
+
+                // Send to server
+                $.ajax({
+                    url: 'ajax/save_reaction.php',
+                    method: 'POST',
+                    data: {
+                        post_id: postId,
+                        reaction: reaction,
+                        csrf_token: csrfToken
+                    },
+                    success: function(response) {
+                        if (response.success) {
+                            // Update reaction count
+                            reactionBtn.find('.reaction-count').text(response.total_reactions);
+
+                            // Update like button state
+                            reactionBtn.find('.like-post')
+                                .removeClass('btn-outline-primary')
+                                .addClass('btn-primary');
+                        }
+                    }
+                });
+            });
+
+            function getReactionIcon(reaction) {
+                const icons = {
+                    'like': 'bi-hand-thumbs-up-fill',
+                    'love': 'bi-heart-fill',
+                    'haha': 'bi-emoji-laughing-fill',
+                    'wow': 'bi-emoji-surprise-fill',
+                    'sad': 'bi-emoji-frown-fill',
+                    'angry': 'bi-emoji-angry-fill'
+                };
+                return icons[reaction] || 'bi-hand-thumbs-up-fill';
+            }
+
+            function getReactionText(reaction) {
+                const texts = {
+                    'like': 'Liked',
+                    'love': 'Loved',
+                    'haha': 'Haha',
+                    'wow': 'Wow',
+                    'sad': 'Sad',
+                    'angry': 'Angry'
+                };
+                return texts[reaction] || 'Like';
+            }
         });
-
-
-
-
-    });
-</script>
+    </script>
+</body>
+</html>

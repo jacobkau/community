@@ -84,7 +84,7 @@ document.querySelectorAll('.edit-post').forEach(button => {
                                     <source src="${media.src}">
                                 </video>`}
                             <label style="display:block; margin-top: 5px; cursor: pointer; font-size: 0.9em;">
-                                <input type="checkbox" name="remove_media[]" value="${media.id}"> Remove
+                                <input type="checkbox" name="remove_media[]" value="${parseInt(media.id)}"> Remove
                             </label>
                         </div>
                     `).join('')}
@@ -121,6 +121,11 @@ document.querySelectorAll('.edit-post').forEach(button => {
             const formData = new FormData(form);
             formData.append('post_id', postId);
 
+            // Log form data for debugging
+            for (let [key, value] of formData.entries()) {
+                console.log(key, value);
+            }
+
             try {
                 const response = await fetch('ajax/edit_post.php', {
                     method: 'POST',
@@ -131,7 +136,7 @@ document.querySelectorAll('.edit-post').forEach(button => {
 
                 if (result.success) {
                     alert(result.message || 'Post updated successfully!');
-                    window.location.reload();  // You can replace this with smarter DOM update if you want
+                    window.location.reload();
                 } else {
                     alert('Error: ' + (result.message || 'Unknown error'));
                 }
