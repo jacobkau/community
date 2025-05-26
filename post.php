@@ -4,11 +4,6 @@ if (session_status() === PHP_SESSION_NONE) {
 }
 require_once __DIR__ . "/config/db.php";
 
-// Check authentication
-if (!isset($_SESSION['user_id'])) {
-    header('Location: login.php');
-    exit;
-}
 
 // Get pagination parameters
 $page = isset($_GET['page']) ? max(1, (int)$_GET['page']) : 1;
@@ -18,32 +13,26 @@ $userId = (int)$_SESSION['user_id'];
 $isAdmin = $_SESSION['is_admin'] ?? false;
 
 try {
-    // First get posts without media
     $postsQuery = $pdo->prepare("
-        SELECT 
-            posts.id,
-            posts.user_id,
-            posts.content,
-            posts.created_at,
-            users.username,
-            users.profile_pic,
-            COUNT(DISTINCT likes.id) AS like_count,
-            COUNT(DISTINCT comments.id) AS comment_count,
-            COUNT(DISTINCT shares.id) AS share_count,
-            EXISTS(
-                SELECT 1 FROM likes 
-                WHERE likes.post_id = posts.id AND likes.user_id = :user_id
-            ) AS has_liked
-        FROM posts
-        JOIN users ON posts.user_id = users.id
-        LEFT JOIN likes ON posts.id = likes.post_id
-        LEFT JOIN shares ON posts.id = shares.post_id
-        LEFT JOIN comments ON posts.id = comments.post_id AND comments.parent_id IS NULL
-        GROUP BY posts.id
-        ORDER BY posts.created_at DESC
-        LIMIT :limit OFFSET :offset
-    ");
-
+    SELECT 
+        posts.id,
+        posts.user_id,
+        posts.content,
+        posts.created_at,
+        users.username,
+        users.profile_pic,
+        (SELECT COUNT(*) FROM likes WHERE likes.post_id = posts.id) AS like_count,
+        (SELECT COUNT(*) FROM comments WHERE comments.post_id = posts.id AND comments.parent_id IS NULL) AS comment_count,
+        (SELECT COUNT(*) FROM shares WHERE shares.post_id = posts.id) AS share_count,
+        EXISTS(
+            SELECT 1 FROM likes 
+            WHERE likes.post_id = posts.id AND likes.user_id = :user_id
+        ) AS has_liked
+    FROM posts
+    JOIN users ON posts.user_id = users.id
+    ORDER BY posts.created_at DESC
+    LIMIT :limit OFFSET :offset
+");
     $postsQuery->bindParam(':limit', $limit, PDO::PARAM_INT);
     $postsQuery->bindParam(':offset', $offset, PDO::PARAM_INT);
     $postsQuery->bindParam(':user_id', $userId, PDO::PARAM_INT);
@@ -53,26 +42,29 @@ try {
     // Get media for all fetched posts in one query
     if (!empty($posts)) {
         $postIds = array_column($posts, 'id');
-        $placeholders = implode(',', array_fill(0, count($postIds), '?'));
-        
+
+        // Fix 1: Remove duplicate post IDs to prevent media query duplication
+        $postIds = array_unique($postIds);
+
+        // Fix 2: Use proper placeholder binding
+        $placeholders = rtrim(str_repeat('?,', count($postIds)), ',');
+
         $mediaQuery = $pdo->prepare("
-            SELECT id, post_id, file_path, media_type
-            FROM post_media
-            WHERE post_id IN ($placeholders)
-            ORDER BY post_id, id
-        ");
+        SELECT id, post_id, file_path, media_type
+        FROM post_media
+        WHERE post_id IN ($placeholders)
+        ORDER BY post_id
+    ");
         $mediaQuery->execute($postIds);
-        $allMedia = $mediaQuery->fetchAll(PDO::FETCH_ASSOC);
-        
-        // Organize media by post_id
+
         $mediaByPost = [];
-        foreach ($allMedia as $media) {
+        foreach ($mediaQuery->fetchAll(PDO::FETCH_ASSOC) as $media) {
             $mediaByPost[$media['post_id']][] = $media;
         }
-        
-        // Attach media to posts
-        foreach ($posts as &$post) {
-            $post['media'] = $mediaByPost[$post['id']] ?? [];
+
+        // Attach media without reference (&) issues
+        foreach ($posts as $key => $post) {
+            $posts[$key]['media'] = $mediaByPost[$post['id']] ?? [];
         }
     }
 
@@ -86,7 +78,8 @@ try {
 }
 
 // Helper function to format date
-function format_date($datetime) {
+function format_date($datetime)
+{
     $timestamp = strtotime($datetime);
     if (!$timestamp) return htmlspecialchars($datetime);
     return date("M d, Y H:i", $timestamp);
@@ -99,7 +92,6 @@ function format_date($datetime) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Social Feed</title>
     <style>
         .reaction-options {
             display: none;
@@ -113,60 +105,97 @@ function format_date($datetime) {
             z-index: 100;
         }
 
-        .media-grid {
-            position: relative;
-            min-height: 200px;
+        .facebook-media-grid {
+            display: grid;
+            gap: 2px;
+            border-radius: 8px;
+            overflow: hidden;
+            max-height: 600px;
         }
 
-        .media-item {
-            transition: opacity 0.2s ease;
+        /* Single media item */
+        .facebook-media-grid[data-media-count="1"] {
+            grid-template-columns: 1fr;
+            aspect-ratio: 1/1;
         }
 
-        .media-more-overlay {
+        /* Two media items */
+        .facebook-media-grid[data-media-count="2"] {
+            grid-template-columns: 1fr 1fr;
+        }
+
+        /* Three media items */
+        .facebook-media-grid[data-media-count="3"] {
+            grid-template-columns: 1fr 1fr;
+            grid-template-rows: 1fr 1fr;
+        }
+
+        .facebook-media-grid[data-media-count="3"] .media-item:first-child {
+            grid-row: span 2;
+        }
+
+        /* Four or more media items */
+        .facebook-media-grid[data-media-count^="4"],
+        .facebook-media-grid[data-media-count^="5"],
+        .facebook-media-grid[data-media-count^="6"] {
+            grid-template-columns: repeat(2, 1fr);
+            grid-template-rows: repeat(2, 1fr);
+        }
+
+        .facebook-media-object {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transition: filter 0.2s ease;
+        }
+
+        .media-item:hover .facebook-media-object {
+            filter: brightness(0.95);
+        }
+
+        .remaining-media-count-overlay {
             position: absolute;
             top: 0;
             left: 0;
             right: 0;
             bottom: 0;
             background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
             color: white;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1.25rem;
-            cursor: pointer;
-            border-radius: 8px;
+            font-size: 2rem;
+            font-weight: bold;
         }
 
-        .media-upload {
-            transition: all 0.2s ease;
+        .video-container {
+            position: relative;
+            height: 100%;
         }
 
-        .media-upload:hover {
-            border-color: #0d6efd !important;
-            color: #0d6efd !important;
-        }
-
-        .media-remove-btn {
+        .video-play-button {
             position: absolute;
-            top: 5px;
-            right: 5px;
-            width: 28px;
-            height: 28px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: white;
+            font-size: 2.5rem;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+            opacity: 0.9;
         }
 
-        .post-media a {
-            flex: 1 0 48%;
-            max-width: 48%;
-        }
+        @media (max-width: 768px) {
+            .facebook-media-grid {
+                max-height: 400px;
+            }
 
-        @media (min-width: 768px) {
-            .post-media a {
-                flex: 1 0 23%;
-                max-width: 23%;
+            .facebook-media-grid[data-media-count="3"] {
+                grid-template-columns: 1fr;
+                grid-template-rows: 2fr 1fr 1fr;
+            }
+
+            .remaining-media-count-overlay {
+                font-size: 1.5rem;
             }
         }
 
@@ -210,13 +239,13 @@ function format_date($datetime) {
                     style="color:var(--text-color);background-color: var(--card-bg); border-color: var(--border-color);border-radius:10px">
 
                     <!-- Post Header -->
-                    <div class="card-header d-flex justify-content-between align-items-center" style="background-color: var(--card-header-bg);">
+                    <div class="card-header d-flex justify-content-between align-items-center"
+                        style="background-color: var(--card-header-bg);">
                         <div class="d-flex align-items-center">
                             <div class="me-3">
                                 <?php if (!empty($post['profile_pic'])): ?>
-                                    <img src="<?= htmlspecialchars($post['profile_pic']) ?>"
-                                        class="rounded-circle" width="40" height="40"
-                                        alt="<?= htmlspecialchars($post['username']) ?>">
+                                    <img src="<?= htmlspecialchars($post['profile_pic']) ?>" class="rounded-circle" width="40"
+                                        height="40" alt="<?= htmlspecialchars($post['username']) ?>">
                                 <?php else: ?>
                                     <div class="rounded-circle bg-secondary d-flex align-items-center justify-content-center"
                                         style="width: 40px; height: 40px; color: white;">
@@ -226,27 +255,25 @@ function format_date($datetime) {
                             </div>
                             <div>
                                 <h6 class="mb-0"><?= htmlspecialchars($post['username']) ?></h6>
-                                <small class="text-muted"><?= format_date($post['created_at']) ?></small>
+                                <small style="color: var(--text-color);"><?= format_date($post['created_at']) ?></small>
                             </div>
                         </div>
 
                         <?php if ($userId === (int)$post['user_id'] || $isAdmin): ?>
                             <div class="dropdown">
-                                <button class="btn btn-sm btn-outline-secondary dropdown-toggle"
-                                    type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button"
+                                    data-bs-toggle="dropdown" aria-expanded="false">
                                     <i class="fas fa-ellipsis-h"></i>
                                 </button>
                                 <ul class="dropdown-menu">
                                     <li>
-                                        <button class="dropdown-item edit-post"
-                                            data-post-id="<?= $post['id'] ?>"
+                                        <button class="dropdown-item edit-post" data-post-id="<?= $post['id'] ?>"
                                             data-csrf="<?= htmlspecialchars($_SESSION['csrf_token']) ?>">
                                             <i class="fas fa-edit me-2"></i>Edit
                                         </button>
                                     </li>
                                     <li>
-                                        <button class="dropdown-item delete-post"
-                                            data-post-id="<?= $post['id'] ?>"
+                                        <button class="dropdown-item delete-post" data-post-id="<?= $post['id'] ?>"
                                             data-csrf="<?= htmlspecialchars($_SESSION['csrf_token']) ?>">
                                             <i class="fas fa-trash me-2"></i>Delete
                                         </button>
@@ -263,38 +290,51 @@ function format_date($datetime) {
                         </div>
 
                         <?php if (!empty($post['media'])): ?>
-                            <div class="post-media d-flex flex-wrap gap-2 mt-3" style="position: relative;">
-                                <?php
-                                $maxToShow = 4;
-                                $totalMedia = count($post['media']);
-                                foreach ($post['media'] as $index => $media):
-                                    if ($index >= $maxToShow) break;
-                                    $mediaUrl = htmlspecialchars($media['file_path']);
-                                    $mediaType = $media['media_type'];
-                                    $mediaId = (int)$media['id'];
-                                ?>
-                                    <div data-media-id="<?= $mediaId ?>" class="edit-media-wrapper">
-                                        <a href="<?= $mediaUrl ?>" class="glightbox" data-gallery="post-<?= $post['id'] ?>">
-                                            <?php if ($mediaType === 'image'): ?>
-                                                <img src="<?= $mediaUrl ?>" class="img-fluid rounded" style="height: 200px; object-fit: cover;">
-                                            <?php elseif ($mediaType === 'video'): ?>
-                                                <video class="rounded" style="height: 200px; object-fit: cover;" muted>
-                                                    <source src="<?= $mediaUrl ?>">
-                                                </video>
+                            <div class="post-media-container mt-3">
+                                <div class="facebook-media-grid" data-media-count="<?= count($post['media']) ?>">
+                                    <?php
+                                    $totalMedia = count($post['media']);
+                                    foreach ($post['media'] as $index => $media):
+                                        $basePath = 'uploads/posts/';
+                                        $mediaUrl = $basePath . htmlspecialchars(basename($media['file_path']));
+                                        $mediaType = $media['media_type'];
+                                        $mediaId = $media['id'] ?? 0;
+                                    ?>
+                                        <div class="media-item <?= $index === 0 ? 'main-media' : '' ?>"
+                                            data-media-id="<?= $mediaId ?>"
+                                            style="position: relative;">
+                                            <a href="<?= $mediaUrl ?>" class="glightbox" data-gallery="post-<?= $post['id'] ?>">
+                                                <?php if ($mediaType === 'image'): ?>
+                                                    <img src="<?= $mediaUrl ?>"
+                                                        class="facebook-media-object"
+                                                        loading="lazy"
+                                                        alt="Post image">
+                                                <?php elseif ($mediaType === 'video'): ?>
+                                                    <div class="video-container">
+                                                        <video class="facebook-media-object"
+                                                            muted
+                                                            controls
+                                                            playsinline
+                                                            poster="<?= $basePath . htmlspecialchars(basename($media['thumbnail_path'])) ?? '' ?>">
+                                                            <source src="<?= $mediaUrl ?>" type="video/mp4">
+                                                        </video>
+                                                        <div class="video-play-button">
+                                                            <i class="fas fa-play"></i>
+                                                        </div>
+                                                    </div>
+                                                <?php endif; ?>
+                                            </a>
+                                            <?php if ($totalMedia > 4 && $index === 3): ?>
+                                                <div class="remaining-media-count-overlay">
+                                                    +<?= $totalMedia - 4 ?>
+                                                </div>
                                             <?php endif; ?>
-                                        </a>
-                                    </div>
-                                <?php endforeach; ?>
-
-                                <?php if ($totalMedia > $maxToShow): ?>
-                                    <div class="position-absolute d-flex justify-content-center align-items-center bg-dark bg-opacity-75 text-white rounded"
-                                        style="top: 0; left: 0; right: 0; bottom: 0; cursor: pointer;"
-                                        onclick="openLightbox('post-<?= $post['id'] ?>')">
-                                        +<?= $totalMedia - $maxToShow ?>
-                                    </div>
-                                <?php endif; ?>
+                                        </div>
+                                    <?php endforeach; ?>
+                                </div>
                             </div>
                         <?php endif; ?>
+
 
                         <!-- Post Stats -->
                         <div class="d-flex justify-content-between mb-3" style="color:var(--text-color)">
@@ -314,10 +354,12 @@ function format_date($datetime) {
                         <!-- Post Actions -->
                         <div class="d-flex justify-content-between border-top border-bottom py-2 mb-3">
                             <div class="reaction-btn position-relative">
-                                <button class="btn btn-sm <?= $post['has_liked'] ? 'btn-primary' : 'btn-outline-primary' ?> like-post"
+                                <button
+                                    class="btn btn-sm <?= $post['has_liked'] ? 'btn-primary' : 'btn-outline-primary' ?> like-post"
                                     data-post-id="<?= $post['id'] ?>"
                                     data-csrf-token="<?= htmlspecialchars($_SESSION['csrf_token']) ?>">
-                                    <i class="bi <?= $post['has_liked'] ? 'bi-hand-thumbs-up-fill' : 'bi-hand-thumbs-up' ?>"></i>
+                                    <i
+                                        class="bi <?= $post['has_liked'] ? 'bi-hand-thumbs-up-fill' : 'bi-hand-thumbs-up' ?>"></i>
                                     <?= $post['has_liked'] ? 'Unlike' : 'Like' ?>
                                     <span class="reaction-count"></span>
                                 </button>
@@ -334,12 +376,13 @@ function format_date($datetime) {
                                 data-post-id="<?= $post['id'] ?>">
                                 <i class="fas fa-comment"></i> <?= $post['comment_count'] ?> Comments
                             </button>
-                            <button class="btn btn-sm btn-outline-secondary share-post"
-                                data-post-id="<?= $post['id'] ?>">
-                                <i class="fas fa-share"></i> Share
+                            <button class="btn btn-sm btn-outline-secondary share-post" data-post-id="<?= $post['id'] ?>"
+                                data-post-url="<?= htmlspecialchars('https://localhost/community/index.php?id=' . $post['id']) ?>">
+                                <i class="fas fa-share"></i>
+                                <span class="share-count"><?= $post['share_count'] ?? 0 ?></span> Shares
                             </button>
                         </div>
-                        
+
                         <!-- Comments Section (Initially Hidden) -->
                         <div class="comments-section" id="comments-<?= $post['id'] ?>" style="display: none;">
                             <!-- Existing Comments (Loaded via AJAX if needed) -->
@@ -347,13 +390,10 @@ function format_date($datetime) {
 
                             <!-- Comment Input Field -->
                             <form class="comment-form mt-3" data-post-id="<?= $post['id'] ?>">
-                                <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token']) ?>">
+                                <input type="hidden" name="csrf_token"
+                                    value="<?= htmlspecialchars($_SESSION['csrf_token']) ?>">
                                 <div class="input-group">
-                                    <textarea
-                                        class="form-control"
-                                        name="comment"
-                                        placeholder="Write a comment..."
-                                        rows="1"
+                                    <textarea class="form-control" name="comment" placeholder="Write a comment..." rows="1"
                                         required></textarea>
                                     <button type="submit" class="btn btn-primary">
                                         <i class="fas fa-paper-plane"></i>
@@ -502,6 +542,157 @@ function format_date($datetime) {
                 return texts[reaction] || 'Like';
             }
         });
+
+        /*=========================
+            SHARE POST FUNCTIONS
+            =========================*/
+
+        $(document).on('click', '.share-post', function() {
+            const postId = $(this).data('post-id');
+            const postUrl = $(this).data('post-url') || `${window.location.origin}/post.php?id=${postId}`;
+            const csrfToken = '<?= $_SESSION['csrf_token'] ?>';
+            const shareBtn = $(this);
+
+            // Create modal HTML
+            const modalHTML = `
+    <div class="modal fade" id="shareModal" tabindex="-1" aria-labelledby="shareModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="shareModalLabel">Share this post</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="share-options row g-3">
+                        <div class="col-6 col-md-4">
+                            <button class="btn btn-primary w-100 share-option" data-type="internal">
+                                <i class="fas fa-share me-2"></i> Our Platform
+                            </button>
+                        </div>
+                        <div class="col-6 col-md-4">
+                            <button class="btn btn-facebook w-100 share-option" data-type="facebook">
+                                <i class="fab fa-facebook-f me-2"></i> Facebook
+                            </button>
+                        </div>
+                        <div class="col-6 col-md-4">
+                            <button class="btn btn-twitter w-100 share-option" data-type="twitter">
+                                <i class="fab fa-twitter me-2"></i> Twitter
+                            </button>
+                        </div>
+                        <div class="col-6 col-md-4">
+                            <button class="btn btn-linkedin w-100 share-option" data-type="linkedin">
+                                <i class="fab fa-linkedin-in me-2"></i> LinkedIn
+                            </button>
+                        </div>
+                        <div class="col-6 col-md-4">
+                            <button class="btn btn-whatsapp w-100 share-option" data-type="whatsapp">
+                                <i class="fab fa-whatsapp me-2"></i> WhatsApp
+                            </button>
+                        </div>
+                        <div class="col-6 col-md-4">
+                            <button class="btn btn-telegram w-100 share-option" data-type="telegram">
+                                <i class="fab fa-telegram-plane me-2"></i> Telegram
+                            </button>
+                        </div>
+                    </div>
+                    <div class="mt-4">
+                        <label class="form-label">Or copy link:</label>
+                        <div class="input-group">
+                            <input type="text" class="form-control" value="${postUrl}" readonly>
+                            <button class="btn btn-outline-secondary copy-link-btn" type="button">
+                                <i class="fas fa-copy"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    `;
+
+            // Remove any existing modals first
+            $('#shareModal').remove();
+
+            // Add modal to DOM
+            $('body').append(modalHTML);
+
+            // Initialize and show modal
+            const shareModal = new bootstrap.Modal(document.getElementById('shareModal'));
+            shareModal.show();
+
+            // Handle copy link button
+            $(document).on('click', '.copy-link-btn', function() {
+                navigator.clipboard.writeText(postUrl);
+                $(this).html('<i class="fas fa-check"></i> Copied!');
+                setTimeout(() => {
+                    $(this).html('<i class="fas fa-copy"></i>');
+                }, 2000);
+            });
+
+            // Handle share option clicks
+            $(document).on('click', '.share-option', function() {
+                const shareType = $(this).data('type');
+
+                if (shareType === 'internal') {
+                    $.ajax({
+                        url: 'ajax/share_post.php',
+                        method: 'POST',
+                        data: {
+                            post_id: postId,
+                            share_type: shareType,
+                            csrf_token: csrfToken
+                        },
+                        success: function(response) {
+                            if (response.success) {
+                                const currentCount = parseInt(shareBtn.find('.share-count').text());
+                                shareBtn.find('.share-count').text(currentCount + 1);
+                                toastr.success('Post shared successfully!');
+                            } else {
+                                toastr.error(response.message);
+                            }
+                            shareModal.hide();
+                        },
+                        error: function() {
+                            toastr.error('Failed to share post');
+                            shareModal.hide();
+                        }
+                    });
+                } else if (shareType === 'copy') {
+                    navigator.clipboard.writeText(postUrl);
+                    toastr.success('Link copied to clipboard!');
+                    shareModal.hide();
+                } else {
+                    let shareUrl = '';
+                    const encodedUrl = encodeURIComponent(postUrl);
+                    const encodedText = encodeURIComponent('Check out this post!');
+
+                    switch (shareType) {
+                        case 'facebook':
+                            shareUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}`;
+                            break;
+                        case 'twitter':
+                            shareUrl = `https://twitter.com/intent/tweet?url=${encodedUrl}&text=${encodedText}`;
+                            break;
+                        case 'linkedin':
+                            shareUrl = `https://www.linkedin.com/sharing/share-offsite/?url=${encodedUrl}`;
+                            break;
+                        case 'whatsapp':
+                            shareUrl = `https://wa.me/?text=${encodedText}%20${encodedUrl}`;
+                            break;
+                        case 'telegram':
+                            shareUrl = `https://t.me/share/url?url=${encodedUrl}&text=${encodedText}`;
+                            break;
+                    }
+
+                    window.open(shareUrl, '_blank', 'width=600,height=400');
+                    shareModal.hide();
+                }
+            });
+        });
     </script>
 </body>
+
 </html>

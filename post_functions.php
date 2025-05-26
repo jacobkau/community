@@ -1,5 +1,7 @@
 <script>
-    //================THEME CHANGER =================
+    /*================
+        THEME CHANGER 
+        =================*/
 
     function toggleTheme() {
         const body = document.body;
@@ -34,43 +36,32 @@
     });
 
 
+        /* ================================
+                EDIT POST HANDLING
+        ===================================*/
 
+    document.querySelectorAll('.edit-post').forEach(button => {
+        button.addEventListener('click', function() {
+            const postId = this.dataset.postId;
+            const postDiv = document.getElementById(`post-${postId}`);
+            const contentDiv = postDiv.querySelector('.post-content');
+            const mediaContainer = postDiv.querySelector('.post-media');
 
+            // Collect existing media items for editing
+            const mediaItems = Array.from(mediaContainer?.querySelectorAll('[data-media-id]') || []).map(item => {
+                const mediaElement = item.querySelector('img, video');
+                return {
+                    id: item.dataset.mediaId,
+                    type: mediaElement.tagName.toLowerCase(),
+                    src: mediaElement.src || mediaElement.querySelector('source')?.src
+                };
+            });
 
-
-
-
-
-
-
-
-
-
-
-
-    
-document.querySelectorAll('.edit-post').forEach(button => {
-    button.addEventListener('click', function() {
-        const postId = this.dataset.postId;
-        const postDiv = document.getElementById(`post-${postId}`);
-        const contentDiv = postDiv.querySelector('.post-content');
-        const mediaContainer = postDiv.querySelector('.post-media');
-
-        // Collect existing media items for editing
-        const mediaItems = Array.from(mediaContainer?.querySelectorAll('[data-media-id]') || []).map(item => {
-            const mediaElement = item.querySelector('img, video');
-            return {
-                id: item.dataset.mediaId,
-                type: mediaElement.tagName.toLowerCase(),
-                src: mediaElement.src || mediaElement.querySelector('source')?.src
-            };
-        });
-
-        // Create edit form with hidden edit_post input for backend detection
-        const form = document.createElement('form');
-        form.className = 'edit-post-form';
-        form.enctype = "multipart/form-data"; // important for file upload
-        form.innerHTML = `
+            // Create edit form with hidden edit_post input for backend detection
+            const form = document.createElement('form');
+            form.className = 'edit-post-form';
+            form.enctype = "multipart/form-data"; // important for file upload
+            form.innerHTML = `
             <input type="hidden" name="edit_post" value="1">
             <div class="post-content-edit">
                 <textarea name="content" rows="5" style="width: 100%;">${contentDiv.textContent.trim()}</textarea>
@@ -102,140 +93,97 @@ document.querySelectorAll('.edit-post').forEach(button => {
             </div>
         `;
 
-        // Hide original media container to avoid confusion
-        if (mediaContainer) mediaContainer.style.display = 'none';
+            // Hide original media container to avoid confusion
+            if (mediaContainer) mediaContainer.style.display = 'none';
 
-        // Replace content div with form
-        contentDiv.replaceWith(form);
+            // Replace content div with form
+            contentDiv.replaceWith(form);
 
-        // Cancel edit handler restores original content & media visibility
-        form.querySelector('.cancel-edit').addEventListener('click', () => {
-            form.replaceWith(contentDiv);
-            if (mediaContainer) mediaContainer.style.display = 'flex';
-        });
+            // Cancel edit handler restores original content & media visibility
+            form.querySelector('.cancel-edit').addEventListener('click', () => {
+                form.replaceWith(contentDiv);
+                if (mediaContainer) mediaContainer.style.display = 'flex';
+            });
 
-        // Submit form via AJAX with files and data
-        form.addEventListener('submit', async (e) => {
-            e.preventDefault();
+            // Submit form via AJAX with files and data
+            form.addEventListener('submit', async (e) => {
+                e.preventDefault();
 
-            const formData = new FormData(form);
-            formData.append('post_id', postId);
+                const formData = new FormData(form);
+                formData.append('post_id', postId);
 
-            // Log form data for debugging
-            for (let [key, value] of formData.entries()) {
-                console.log(key, value);
-            }
-
-            try {
-                const response = await fetch('ajax/edit_post.php', {
-                    method: 'POST',
-                    body: formData
-                });
-
-                const result = await response.json();
-
-                if (result.success) {
-                    alert(result.message || 'Post updated successfully!');
-                    window.location.reload();
-                } else {
-                    alert('Error: ' + (result.message || 'Unknown error'));
+                // Log form data for debugging
+                for (let [key, value] of formData.entries()) {
+                    console.log(key, value);
                 }
-            } catch (error) {
-                console.error('Update error:', error);
-                alert('An error occurred while updating the post.');
-            }
+
+                try {
+                    const response = await fetch('ajax/edit_post.php', {
+                        method: 'POST',
+                        body: formData
+                    });
+
+                    const result = await response.json();
+
+                    if (result.success) {
+                        alert(result.message || 'Post updated successfully!');
+                        window.location.reload();
+                    } else {
+                        alert('Error: ' + (result.message || 'Unknown error'));
+                    }
+                } catch (error) {
+                    console.error('Update error:', error);
+                    alert('An error occurred while updating the post.');
+                }
+            });
         });
     });
-});
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-    
     /*=======================================
              DELETE POST HANDLING
     =========================================*/
     document.querySelectorAll('.delete-post').forEach(button => {
-    button.addEventListener('click', async function() {
-        if (!confirm('Are you sure you want to delete this post?')) return;
+        button.addEventListener('click', async function() {
+            if (!confirm('Are you sure you want to delete this post?')) return;
 
-        const postId = this.dataset.postId;
-        const csrfToken = this.dataset.csrf;
+            const postId = this.dataset.postId;
+            const csrfToken = this.dataset.csrf;
 
-        try {
-            const response = await fetch('ajax/delete_post.php', {  // Specific endpoint
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded',
-                },
-                body: new URLSearchParams({
-                    delete_post: 1,
-                    post_id: postId,
-                    csrf_token: csrfToken
-                })
-            });
+            try {
+                const response = await fetch('ajax/delete_post.php', { // Specific endpoint
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: new URLSearchParams({
+                        delete_post: 1,
+                        post_id: postId,
+                        csrf_token: csrfToken
+                    })
+                });
 
-            const result = await response.json();
+                const result = await response.json();
 
-            if (!result.success) {
-                throw new Error(result.message || 'Failed to delete post');
+                if (!result.success) {
+                    throw new Error(result.message || 'Failed to delete post');
+                }
+
+                // Remove post and check if container is empty
+                const postElement = document.getElementById(`post-${postId}`);
+                postElement.remove();
+
+                const container = document.getElementById('posts-container');
+                if (container.children.length === 0) {
+                    container.innerHTML = `<div class="alert alert-info">No posts found</div>`;
+                }
+
+            } catch (error) {
+                console.error('Delete error:', error);
+                alert(error.message);
             }
-
-            // Remove post and check if container is empty
-            const postElement = document.getElementById(`post-${postId}`);
-            postElement.remove();
-            
-            const container = document.getElementById('posts-container');
-            if (container.children.length === 0) {
-                container.innerHTML = `<div class="alert alert-info">No posts found</div>`;
-            }
-
-        } catch (error) {
-            console.error('Delete error:', error);
-            alert(error.message);
-        }
+        });
     });
-});
-
-
-    //========== FUNCTION TO CREATE COMMENT ELEMENT ============//
-
-
-
 
     // ===================================
     //    ===== POST LIKES ============
@@ -426,14 +374,15 @@ document.querySelectorAll('.edit-post').forEach(button => {
         }
     }
 
+    
+        // ===========================
+        //  Edit Comment Functionality
+        // ===========================
 
 
     $(document).ready(function() {
         const csrfToken = '<?= $_SESSION['csrf_token'] ?>'; // CSRF token from PHP
 
-        // =========================================================================
-        //  Edit Comment Functionality
-        // =========================================================================
         $(document).on('click', '.edit-comment', function() {
             const commentId = $(this).data('comment-id');
 
@@ -546,69 +495,10 @@ document.querySelectorAll('.edit-post').forEach(button => {
 
 
 
+    /*=========================
+            LOAD MORE POSTS 
+      =========================*/
 
-
-
-
-    // =========================
-    //      SHARE BUTTON
-    //==========================
-    // Initialize modal when DOM loads
-    document.addEventListener('DOMContentLoaded', function() {
-        const shareModal = document.querySelector('.share-modal-overlay');
-
-        // Close modal when clicking X or outside
-        document.querySelector('.share-modal-close').addEventListener('click', closeShareModal);
-        shareModal.addEventListener('click', function(e) {
-            if (e.target === shareModal) {
-                closeShareModal();
-            }
-        });
-
-        // Handle all share buttons
-        document.querySelectorAll('.share-btn').forEach(btn => {
-            btn.addEventListener('click', function() {
-                const url = this.getAttribute('data-url');
-                const type = this.getAttribute('data-type') || 'item';
-                openShareModal(url, type);
-            });
-        });
-    });
-
-    function openShareModal(url, type) {
-        const shareModal = document.querySelector('.share-modal-overlay');
-        const urlInput = shareModal.querySelector('.share-url');
-        const typeDisplay = shareModal.querySelector('.share-item-type');
-
-        urlInput.value = url;
-        typeDisplay.textContent = type;
-
-        // Show modal with animation
-        shareModal.classList.add('active');
-        document.body.style.overflow = 'hidden'; // Prevent scrolling
-    }
-
-    function closeShareModal() {
-        const shareModal = document.querySelector('.share-modal-overlay');
-        shareModal.classList.remove('active');
-        document.body.style.overflow = ''; // Re-enable scrolling
-    }
-
-    // Copy URL function
-    function copyShareUrl() {
-        const urlInput = document.querySelector('.share-url');
-        urlInput.select();
-        document.execCommand('copy');
-
-        // Show feedback
-        const copyBtn = document.querySelector('.copy-url-btn');
-        copyBtn.innerHTML = '<i class="fas fa-check"></i> Copied!';
-        setTimeout(() => {
-            copyBtn.innerHTML = '<i class="fas fa-copy"></i> Copy';
-        }, 2000);
-    }
-
-    //=======LOAD MORE POSTS =====
 
     $(document).ready(function() {
         // Load more posts functionality
@@ -683,41 +573,41 @@ document.querySelectorAll('.edit-post').forEach(button => {
     });
 
     // ============Hightlight post ============
- document.addEventListener('DOMContentLoaded', function() {
-            const lightbox = GLightbox({
-                selector: '.glightbox'
-            });
+    document.addEventListener('DOMContentLoaded', function() {
+        const lightbox = GLightbox({
+            selector: '.glightbox'
         });
+    });
 
-        function openLightbox(galleryId) {
-            const lightbox = GLightbox({
-                selector: `[data-gallery="${galleryId}"]`
-            });
-            lightbox.open();
-        }
-        // Helper functions for reactions
-        function getReactionIcon(reaction) {
-            const icons = {
-                'like': 'bi-hand-thumbs-up-fill',
-                'love': 'bi-heart-fill',
-                'haha': 'bi-emoji-laughing-fill',
-                'wow': 'bi-emoji-surprise-fill',
-                'sad': 'bi-emoji-frown-fill',
-                'angry': 'bi-emoji-angry-fill'
-            };
-            return icons[reaction] || 'bi-hand-thumbs-up-fill';
-        }
+    function openLightbox(galleryId) {
+        const lightbox = GLightbox({
+            selector: `[data-gallery="${galleryId}"]`
+        });
+        lightbox.open();
+    }
+    // Helper functions for reactions
+    function getReactionIcon(reaction) {
+        const icons = {
+            'like': 'bi-hand-thumbs-up-fill',
+            'love': 'bi-heart-fill',
+            'haha': 'bi-emoji-laughing-fill',
+            'wow': 'bi-emoji-surprise-fill',
+            'sad': 'bi-emoji-frown-fill',
+            'angry': 'bi-emoji-angry-fill'
+        };
+        return icons[reaction] || 'bi-hand-thumbs-up-fill';
+    }
 
-        function getReactionText(reaction) {
-            const texts = {
-                'like': 'Like',
-                'love': 'Love',
-                'haha': 'Haha',
-                'wow': 'Wow',
-                'sad': 'Sad',
-                'angry': 'Angry'
-            };
-            return texts[reaction] || 'Like';
-        }
-    //============ View more comments =========
+    function getReactionText(reaction) {
+        const texts = {
+            'like': 'Like',
+            'love': 'Love',
+            'haha': 'Haha',
+            'wow': 'Wow',
+            'sad': 'Sad',
+            'angry': 'Angry'
+        };
+        return texts[reaction] || 'Like';
+    }
+
 </script>

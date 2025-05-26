@@ -1,7 +1,6 @@
 <?php
 session_start();
 header('Content-Type: application/json');
-
 require_once __DIR__ . '/../config/db.php';
 
 if (!isset($_SESSION['user_id'])) {
@@ -18,7 +17,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_post'])) {
         $postId = (int)$_POST['post_id'];
         $userId = (int)$_SESSION['user_id'];
 
-        // Verify post exists and belongs to user (or is admin)
+        // Check ownership or admin
         $stmt = $pdo->prepare("SELECT user_id FROM posts WHERE id = ?");
         $stmt->execute([$postId]);
         $post = $stmt->fetch();
@@ -31,34 +30,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_post'])) {
             throw new Exception('Unauthorized to delete this post');
         }
 
-        // Begin transaction
         $pdo->beginTransaction();
 
-        // 1. Delete post media
-        $stmt = $pdo->prepare("DELETE FROM post_media WHERE post_id = ?");
+        // Delete media
+        $stmt = $pdo->prepare("SELECT file_path FROM post_media WHERE post_id = ?");
         $stmt->execute([$postId]);
+        $mediaFiles = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-        // 2. Delete likes on comments under this post
-        $stmt = $pdo->prepare("DELETE FROM comment_likes WHERE comment_id IN (SELECT id FROM comments WHERE post_id = ?)");
-        $stmt->execute([$postId]);
+        foreach ($mediaFiles as $file) {
+            $path = realpath(__DIR__ . '/../' . $file['file_path']);
+            if ($path && file_exists($path)) {
+                @unlink($path); // suppress errors
+            }
+        }
 
-        // 3. Delete comments and replies
-        $stmt = $pdo->prepare("DELETE FROM comments WHERE post_id = ?");
-        $stmt->execute([$postId]);
+        $pdo->prepare("DELETE FROM post_media WHERE post_id = ?")->execute([$postId]);
+        $pdo->prepare("DELETE FROM comment_likes WHERE comment_id IN (SELECT id FROM comments WHERE post_id = ?)")->execute([$postId]);
+        $pdo->prepare("DELETE FROM comments WHERE post_id = ?")->execute([$postId]);
+        $pdo->prepare("DELETE FROM likes WHERE post_id = ?")->execute([$postId]);
+        $pdo->prepare("DELETE FROM posts WHERE id = ?")->execute([$postId]);
 
-        // 4. Delete post likes
-        $stmt = $pdo->prepare("DELETE FROM post_likes WHERE post_id = ?");
-        $stmt->execute([$postId]);
-
-        // 5. Delete related notifications (if applicable)
-        $stmt = $pdo->prepare("DELETE FROM notifications WHERE post_id = ?");
-        $stmt->execute([$postId]);
-
-        // 6. Delete the post itself
-        $stmt = $pdo->prepare("DELETE FROM posts WHERE id = ?");
-        $stmt->execute([$postId]);
-
-        // Commit changes
         $pdo->commit();
 
         echo json_encode(['success' => true]);
@@ -67,11 +58,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_post'])) {
     } catch (Exception $e) {
         $pdo->rollBack();
         error_log('Delete error: ' . $e->getMessage());
-        echo json_encode([
-            'success' => false,
-            'message' => 'Failed to delete post: ' . $e->getMessage()
-        ]);
+        echo json_encode(['success' => false, 'message' => 'Failed to delete post: ' . $e->getMessage()]);
         exit;
     }
+} else {
+    // ✳️ Fallback for invalid request
+    echo json_encode(['success' => false, 'message' => 'Invalid request']);
+    exit;
 }
 ?>

@@ -56,6 +56,35 @@ try {
     $stmt->execute([$_SESSION['user_id'], $profile_user_id]);
     $posts = $stmt->fetchAll();
 
+    // Get media for all fetched posts in one query
+    if (!empty($posts)) {
+        $postIds = array_column($posts, 'id');
+
+        // Fix 1: Remove duplicate post IDs to prevent media query duplication
+        $postIds = array_unique($postIds);
+
+        // Fix 2: Use proper placeholder binding
+        $placeholders = rtrim(str_repeat('?,', count($postIds)), ',');
+
+        $mediaQuery = $pdo->prepare("
+        SELECT id, post_id, file_path, media_type
+        FROM post_media
+        WHERE post_id IN ($placeholders)
+        ORDER BY post_id
+    ");
+        $mediaQuery->execute($postIds);
+
+        $mediaByPost = [];
+        foreach ($mediaQuery->fetchAll(PDO::FETCH_ASSOC) as $media) {
+            $mediaByPost[$media['post_id']][] = $media;
+        }
+
+        // Attach media without reference (&) issues
+        foreach ($posts as $key => $post) {
+            $posts[$key]['media'] = $mediaByPost[$post['id']] ?? [];
+        }
+    }
+
     // Get mutual friends count
     $stmt = $pdo->prepare("
         SELECT COUNT(*) AS mutual_count
@@ -83,73 +112,102 @@ try {
     <link rel="shortcut icon" href="/uploads/<?= htmlspecialchars($profile_user['username']) ?>" type="image/x-icon">
 
     <style>
-    .cover-container {
-        margin-top: 5vh;
-        height: 200px;
-        background-color: var(--border-color);
-        background-size: cover;
-        background-position: center;
-        border-bottom-left-radius: 8px;
-        border-bottom-right-radius: 8px;
-    }
+        .cover-container {
+            margin-top: 5vh;
+            height: 200px;
+            background-color: var(--border-color);
+            background-size: cover;
+            background-position: center;
+            border-bottom-left-radius: 8px;
+            border-bottom-right-radius: 8px;
+        }
 
-    .profile-img {
-        width: 168px;
-        height: 168px;
-        border-radius: 50%;
-        border: 4px solid white;
-        object-fit: cover;
-        position: absolute;
-        bottom: -30px;
-        left: 10px;
-    }
+        .profile-img {
+            width: 168px;
+            height: 168px;
+            border-radius: 50%;
+            border: 4px solid white;
+            object-fit: cover;
+            position: absolute;
+            bottom: -30px;
+            left: 10px;
+        }
 
-    .profile-nav {
-        background-color: white;
-        border-radius: 8px;
-        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
-    }
+        .profile-nav {
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+        }
 
-    .profile-card {
-        background-color: white;
-        border-radius: 8px;
-        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
-    }
+        .profile-card {
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+        }
 
-    .post-card:hover {
-        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-        transition: all 0.3s ease;
-    }
+        .post-card:hover {
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
+        }
 
-    .profile-card h5 {
-        color: var(--text-color);
-    }
+        .profile-card h5 {
+            color: var(--text-color);
+        }
 
-    .like-btn.active {
-        color: #1877f2;
-    }
+        .like-btn.active {
+            color: #1877f2;
+        }
 
-    .form-control {
-        background-color: var(--border-color);
-        color: var(--text-color);
-        border-color: var(--input-border);
-    }
+        .reaction-options {
+            display: none;
+            position: absolute;
+            bottom: 100%;
+            left: 0;
+            background: white;
+            border-radius: 50px;
+            padding: 5px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+            z-index: 100;
+        }
 
-    .form-control:focus {
-        background-color: var(--input-bg);
-        color: var(--text-color);
-        border-color: var(--accent-color);
-        box-shadow: 0 0 0 0.25rem rgba(114, 137, 218, 0.25);
-    }
 
-    .text-muted {
-        color: var(--secondary-text) !important;
-    }
 
-    .btn-primary {
-        background-color: var(--accent-color);
-        border-color: var(--accent-color);
-    }
+        .reaction-btn:hover .reaction-options {
+            display: flex;
+        }
+
+        .reaction-option {
+            font-size: 1.5rem;
+            margin: 0 3px;
+            transition: transform 0.2s;
+            cursor: pointer;
+        }
+
+        .reaction-option:hover {
+            transform: scale(1.3) translateY(-5px);
+        }
+
+        .form-control {
+            background-color: var(--border-color);
+            color: var(--text-color);
+            border-color: var(--input-border);
+        }
+
+        .form-control:focus {
+            background-color: var(--input-bg);
+            color: var(--text-color);
+            border-color: var(--accent-color);
+            box-shadow: 0 0 0 0.25rem rgba(114, 137, 218, 0.25);
+        }
+
+        .text-muted {
+            color: var(--secondary-text) !important;
+        }
+
+        .btn-primary {
+            background-color: var(--accent-color);
+            border-color: var(--accent-color);
+        }
     </style>
 </head>
 
@@ -169,12 +227,10 @@ try {
         </div>
         <!-- Main Content -->
         <?php include "fb/links.php" ?>
-        
+
     </div>
 
-    <?php require_once __DIR__ . "/includes/footer.php"; ?>
-    <?php require_once __DIR__ . "/post_functions.php"; ?>
-        <script>
+    <script>
         $(document).ready(function() {
             // Follow/unfollow button handler
             $(document).on('click', '.follow-btn', function() {
@@ -282,11 +338,15 @@ try {
                 window.location.href = 'profile.php';
             });
 
-          
+
         });
-        </script>
-        <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.x/dist/js/bootstrap.bundle.min.js"></script>
+    </script>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.x/dist/js/bootstrap.bundle.min.js"></script>
+    <?php include "includes/footer.php"; ?>
+    <?php require_once __DIR__ . "/post_functions.php"; ?>
 
 </body>
+
 </html>

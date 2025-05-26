@@ -88,6 +88,116 @@ input::placeholder {
   padding-left: 15px;
 }
 
+
+
+/* Share button styles */
+.share-post {
+    transition: all 0.2s;
+}
+
+.share-post:hover {
+    transform: translateY(-2px);
+}
+
+/* Platform-specific button colors */
+.btn-facebook { 
+    background-color: #3b5998; 
+    border-color: #3b5998;
+    color: white; 
+}
+
+.btn-twitter { 
+    background-color: #1da1f2; 
+    border-color: #1da1f2;
+    color: white; 
+}
+
+.btn-linkedin { 
+    background-color: #0077b5; 
+    border-color: #0077b5;
+    color: white; 
+}
+
+.btn-whatsapp { 
+    background-color: #25d366; 
+    border-color: #25d366;
+    color: white; 
+}
+
+.btn-telegram { 
+    background-color: #0088cc; 
+    border-color: #0088cc;
+    color: white; 
+}
+
+/* Modal adjustments */
+#shareModal .modal-dialog {
+    max-width: 600px;
+}
+
+.share-option {
+    margin-bottom: 10px;
+    white-space: nowrap;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.copy-link-btn {
+    min-width: 42px;
+}
+
+.share-modal {
+    background: white;
+    border-radius: 10px;
+    max-width: 500px;
+    margin: 0 auto;
+    z-index: 1000;
+}
+
+.share-header {
+    padding: 15px 20px;
+    border-bottom: 1px solid #eee;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.share-header h5 {
+    margin: 0;
+    font-size: 1.2rem;
+}
+
+.share-body {
+    padding: 20px;
+}
+
+.share-options {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+.share-option i {
+    margin-right: 8px;
+}
+
+.share-option:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+}
+
+/* Responsive adjustments */
+@media (max-width: 576px) {
+    .share-options {
+        grid-template-columns: 1fr;
+    }
+}
+
+
+
+
         
 .fb-card {
   background-color: var(--input-border);
