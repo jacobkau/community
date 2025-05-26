@@ -109,7 +109,7 @@ try {
     <title><?= htmlspecialchars($profile_user['username']) ?> | Social Network</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.x/dist/css/bootstrap.min.css" rel="stylesheet">
 
-    <link rel="shortcut icon" href="/uploads/<?= htmlspecialchars($profile_user['username']) ?>" type="image/x-icon">
+    <link rel="shortcut icon" href="uploads/<?= htmlspecialchars($profile_user['profile_pic']) ?>" type="image/x-icon">
 
     <style>
         .cover-container {
