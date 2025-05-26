@@ -23,7 +23,7 @@
   </div>
   <div class="d-flex justify-content-end">
           <?php if ($is_own_profile): ?>
-              <a href="settings.php" class="btn btn-light rounded-pill me-2" style="cursor:pointer;z-index:9999999">
+              <a href="settings.php" class="btn btn-light rounded-pill me-2" style="cursor:pointer;z-index:999">
                   <i class="bi bi-pencil-fill"></i> Edit Profile
               </a>
   <?php else: ?>

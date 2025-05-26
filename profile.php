@@ -100,17 +100,6 @@ try {
 }
 ?>
 
-<!DOCTYPE html>
-<html lang="en">
-
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?= htmlspecialchars($profile_user['username']) ?> | Social Network</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.x/dist/css/bootstrap.min.css" rel="stylesheet">
-
-    <link rel="shortcut icon" href="uploads/<?= htmlspecialchars($profile_user['profile_pic']) ?>" type="image/x-icon">
-
     <style>
         .cover-container {
             margin-top: 5vh;
@@ -209,9 +198,10 @@ try {
             border-color: var(--accent-color);
         }
     </style>
-</head>
 
-<?php include __DIR__ . '/includes/header.php'; ?>
+<div style="z-index: 9999999999999999999999999;">
+    <?php include __DIR__ . '/includes/header.php'; ?>
+</div>
 
 <body data-theme="light">
     <!-- Cover Photo -->
@@ -344,9 +334,11 @@ try {
 
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.x/dist/js/bootstrap.bundle.min.js"></script>
-    <?php include "includes/footer.php"; ?>
+    
     <?php require_once __DIR__ . "/post_functions.php"; ?>
 
 </body>
-
+<div style="margin-top: 13vh;">
+    <?php include "includes/footer.php"; ?>
+</div>
 </html>
