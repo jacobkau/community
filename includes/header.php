@@ -52,30 +52,30 @@
 
                     <!-- Main navbar content -->
                     <div class="collapse navbar-collapse" id="navbarMain">
-                        <ul class="navbar-nav me-auto">
-                            <li class="nav-item">
-                                <a class="nav-link active" href="/community/index.php">
-                                    <i class="bi bi-house-door me-1"></i> Home
+                        <ul class="navbar-nav me-auto" >
+                            <li class="nav-item"s>
+                                <a class="nav-link active" href="/community/index.php" >
+                                     <span style="color:#fbfbfb"><i class="bi bi-house-door me-1"></i>Home</span>
                                 </a>
                             </li>
                             <li class="nav-item">
-                                <a class="nav-link" href="/bits-catholic-portal/public/contact.php">
-                                    <i class="bi bi-envelope me-1"></i> Contact Us
+                                <a class="nav-link theme-text" href="/bits-catholic-portal/public/contact.php">
+                                   <span style="color:#fbfbfb"><i class="bi bi-envelope me-1"></i> Contact Us</span>
                                 </a>
                             </li>
                             <li class="nav-item">
                                 <a class="nav-link" href="/community/privacy.php">
-                                    <i class="bi bi-shield-lock me-1"></i> Privacy Policy
+                                     <span style="color:#fbfbfb"><i class="bi bi-shield-lock me-1"></i> Privacy Policy</span>
                                 </a>
                             </li>
                             <li class="nav-item">
                                 <a class="nav-link" href="/community/terms.php">
-                                    <i class="bi bi-file-earmark-text me-1"></i> Terms
+                                     <span style="color:#fbfbfb"><i class="bi bi-file-earmark-text me-1"></i> Terms</span>
                                 </a>
                             </li>
                             <li class="nav-item">
                                 <a class="nav-link" href="/bits-catholic-portal/admin/site.php">
-                                    <i class="bi bi-globe me-1"></i> Portal Homepage
+                                     <span style="color:#fbfbfb"><i class="bi bi-globe me-1"></i> Portal Homepage</span>
                                 </a>
                             </li>
                         </ul>
@@ -90,7 +90,7 @@
                                 <li class="nav-item ms-3">
                                     <a class="nav-link theme-text px-3 py-1 rounded" href="logout.php"
                                         style="border: 1px solid var(--accent-color);">
-                                        Logout
+                                         <span style="color:#fbfbfb"> <i class="fa-solid fa-power-off"></i> Logout</span>
                                     </a>
                                 </li>
                             <?php else: ?>

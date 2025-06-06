@@ -194,10 +194,6 @@ input::placeholder {
         grid-template-columns: 1fr;
     }
 }
-
-
-
-
         
 .fb-card {
   background-color: var(--input-border);
@@ -255,9 +251,6 @@ input::placeholder {
   font-weight: 600;
   margin-bottom: 16px;
 }
-
-
-
 .post {
   background: #f5f5f5;
   padding: 20px;
