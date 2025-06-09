@@ -145,7 +145,9 @@ $bookmarks = $stmt_bookmarks->fetchAll();
         </aside>
     </div>
 
-    <?php require_once __DIR__ . "/includes/footer.php" ?>
-    <?php require_once __DIR__ . "/post_functions.php" ?>
 
 </body>
+<div class="check py-5" style="margin-top: 7vh;">
+    <?php require_once __DIR__ . "/includes/footer.php" ?>
+</div>
+    <?php require_once __DIR__ . "/post_functions.php" ?>

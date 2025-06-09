@@ -26,10 +26,10 @@
 </div>
 
 
-<footer class="theme-footer col-12 pt-4" style="position: fixed;width:100%;bottom:1;" > <!-- Adjust margin to match sidebar width -->
+<footer class="theme-footer col-12 pt-4 pb-4"> <!-- Adjust margin to match sidebar width -->
   <div class="container text-center">
-    <p class="mb-1">&copy; <?= date("Y") ?> Bits Catholic Portal Community. All rights reserved.</p>
-    <p class="small">
+    <p class="mb-1 fw-bolder" style="color:#f5f5f5;">&copy; <?= date("Y") ?> Bits Catholic Portal Community. All rights reserved.</p>
+    <p class="small fw-bold">
       <a href="privacy.php" class="footer-link">Privacy Policy</a> |
       <a href="terms.php" class="footer-link">Terms of Service</a> |
       <a href="/bits-catholic-portal/public/contact.php" class="footer-link">Contact Us</a>
