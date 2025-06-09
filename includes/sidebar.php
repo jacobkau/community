@@ -14,7 +14,7 @@ if (isset($_SESSION['user_id'])) {
            (SELECT COUNT(*) FROM posts WHERE user_id = ?) AS post_count,
            (SELECT COUNT(*) FROM comments WHERE user_id = ?) AS comment_count
     FROM users
-    WHERE id = ?
+    WHERE user_id = ?
   ");
   $stmt->execute([$user_id, $user_id, $user_id]);
   $userData = $stmt->fetch();

@@ -19,7 +19,7 @@ if (isset($_SESSION['user_id'])) {
         // Get target user for messaging if specified
         $target_user_id = filter_input(INPUT_POST, 'target_user_id', FILTER_VALIDATE_INT);
         if ($target_user_id) {
-            $stmt = $pdo->prepare("SELECT username FROM users WHERE id = ?");
+            $stmt = $pdo->prepare("SELECT username FROM users WHERE user_id = ?");
             $stmt->execute([$target_user_id]);
             $target = $stmt->fetch(PDO::FETCH_ASSOC);
             $target_username = $target['username'] ?? null;
@@ -62,13 +62,13 @@ if (isset($_SESSION['user_id'])) {
         if (isset($_GET['query']) && !empty(trim($_GET['query']))) {
             $query = '%' . trim($_GET['query']) . '%';
             $stmt = $pdo->prepare("
-                SELECT id, username, profile_pic, 
+                SELECT user_id, username, profile_pic, 
                     EXISTS (
                         SELECT 1 FROM follows f
-                        WHERE f.follower_user_id = ? AND f.followed_user_id = u.id
+                        WHERE f.follower_user_id = ? AND f.followed_user_id = u.user_id
                     ) AS is_following
                 FROM users u 
-                WHERE username LIKE ? AND id != ?
+                WHERE username LIKE ? AND user_id != ?
                 LIMIT 20
             ");
             $stmt->execute([$current_user_id, $query, $current_user_id]);
@@ -80,13 +80,13 @@ if (isset($_SESSION['user_id'])) {
             $offset = ($page - 1) * $limit;
 
             $stmt = $pdo->prepare("
-                SELECT u.id, u.username, u.profile_pic,
+                SELECT u.user_id, u.username, u.profile_pic,
                     EXISTS (
                         SELECT 1 FROM follows f
-                        WHERE f.follower_user_id = ? AND f.followed_user_id = u.id
+                        WHERE f.follower_user_id = ? AND f.followed_user_id = u.user_id
                     ) AS is_following
                 FROM users u
-                WHERE u.id != ?
+                WHERE u.user_id != ?
                 LIMIT ? OFFSET ?
             ");
             $stmt->execute([$current_user_id, $current_user_id, $limit, $offset]);
@@ -95,15 +95,15 @@ if (isset($_SESSION['user_id'])) {
 
         // Get suggested users based on shared interests
         $stmt = $pdo->prepare("
-            SELECT DISTINCT u.id, u.username, u.profile_pic,
+            SELECT DISTINCT u.user_id, u.username, u.profile_pic,
                 EXISTS (
                     SELECT 1 FROM follows f
-                    WHERE f.follower_user_id = ? AND f.followed_user_id = u.id
+                    WHERE f.follower_user_id = ? AND f.followed_user_id = u.user_id
                 ) AS is_following
             FROM users u
-            JOIN user_interests ui ON ui.user_id = u.id
+            JOIN user_interests ui ON ui.user_id = u.user_id
             JOIN user_interests ci ON ci.interest_id = ui.interest_id
-            WHERE ci.user_id = ? AND u.id != ?
+            WHERE ci.user_id = ? AND u.user_id != ?
             LIMIT 5
         ");
         $stmt->execute([$current_user_id, $current_user_id, $current_user_id]);
@@ -182,7 +182,7 @@ if (isset($_SESSION['user_id'])) {
                             <?php endif; ?>
                         </div>
                         <h5 class="mb-1">
-                            <a href="/profile.php?id=<?= $user['id'] ?>" class="text-decoration-none" style="color: var(--text-color);">
+                            <a href="/profile.php?id=<?= $user['user_id'] ?>" class="text-decoration-none" style="color: var(--text-color);">
                                 <?= htmlspecialchars($user['username']) ?>
                             </a>
                         </h5>
@@ -194,7 +194,7 @@ if (isset($_SESSION['user_id'])) {
                         <p class="text-muted small mb-3"><?= htmlspecialchars($user['bio'] ?? 'No bio yet') ?></p>
 
                         <button class="btn w-100 mb-2 fb-btn-primary follow-btn"
-                            data-user-id="<?= $user['id'] ?>"
+                            data-user-id="<?= $user['user_id'] ?>"
                             data-action="follow">
                             Add Friend
                         </button>

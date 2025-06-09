@@ -10,7 +10,7 @@ $page = isset($_GET['page']) ? max(1, (int)$_GET['page']) : 1;
 $limit = 10; // Number of posts to load at once
 $offset = ($page - 1) * $limit;
 $userId = (int)$_SESSION['user_id'];
-$isAdmin = $_SESSION['is_admin'] ?? false;
+$isAdmin = $_SESSION['role'] ?? false;
 
 try {
     $postsQuery = $pdo->prepare("
@@ -29,7 +29,7 @@ try {
             WHERE likes.post_id = posts.id AND likes.user_id = :user_id
         ) AS has_liked
     FROM posts
-    JOIN users ON posts.user_id = users.id
+    JOIN users ON posts.user_id = users.user_id
     ORDER BY posts.created_at DESC
     LIMIT :limit OFFSET :offset
 ");

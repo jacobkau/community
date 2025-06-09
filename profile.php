@@ -11,21 +11,21 @@ if (!isset($_SESSION['user_id'])) {
 }
 
 // Get profile user ID from URL
-$profile_user_id = isset($_GET['id']) ? (int)$_GET['id'] : $_SESSION['user_id'];
+$profile_user_id = isset($_GET['user_id']) ? (int)$_GET['user_id'] : $_SESSION['user_id'];
 
 try {
     // Get profile user data
     $stmt = $pdo->prepare("
         SELECT 
             u.*,
-            (SELECT COUNT(*) FROM follows WHERE follower_user_id = u.id) AS following_count,
-            (SELECT COUNT(*) FROM follows WHERE followed_user_id = u.id) AS followers_count,
+            (SELECT COUNT(*) FROM follows WHERE follower_user_id = u.user_id) AS following_count,
+            (SELECT COUNT(*) FROM follows WHERE followed_user_id = u.user_id) AS followers_count,
             EXISTS (
                 SELECT 1 FROM follows 
-                WHERE follower_user_id = ? AND followed_user_id = u.id
+                WHERE follower_user_id = ? AND followed_user_id = u.user_id
             ) AS is_following
         FROM users u
-        WHERE u.id = ?
+        WHERE u.user_id = ?
     ");
     $stmt->execute([$_SESSION['user_id'], $profile_user_id]);
     $profile_user = $stmt->fetch();
@@ -48,7 +48,7 @@ try {
                 WHERE post_id = p.id AND user_id = ?
             ) AS has_liked
         FROM posts p
-        JOIN users u ON u.id = p.user_id
+        JOIN users u ON u.user_id = p.user_id
         WHERE p.user_id = ?
         ORDER BY p.created_at DESC
         LIMIT 10

@@ -115,7 +115,7 @@
     </div>
 
     <!-- Mobile sidebar offcanvas -->
-    <div class="offcanvas offcanvas-start" style="margin-top: 10vh; color:var(--text-color)" tabindex="-1" id="offcanvasProfile" aria-labelledby="offcanvasProfileLabel">
+    <div class="offcanvas offcanvas-start" style="margin-top: 10vh; color:var(--text-color);background-color: var(--card-bg);" tabindex="-1" id="offcanvasProfile" aria-labelledby="offcanvasProfileLabel">
         <div class="offcanvas-header">
             <h5 class="offcanvas-title d-flex align-items-center" id="offcanvasProfileLabel">
                 <i class="bi bi-person-circle me-2"></i> Profile
@@ -138,7 +138,7 @@
                         (SELECT COUNT(*) FROM posts WHERE user_id = ?) AS post_count,
                         (SELECT COUNT(*) FROM comments WHERE user_id = ?) AS comment_count
                     FROM users
-                    WHERE id = ?
+                    WHERE user_id = ?
                 ");
                 $stmt->execute([$user_id, $user_id, $user_id]);
                 $userData = $stmt->fetch();

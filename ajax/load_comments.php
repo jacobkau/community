@@ -10,7 +10,7 @@ if (!isset($_SESSION['user_id']) || !isset($_GET['post_id'])) {
 }
 $postId = (int)$_GET['post_id'];
 $userId = (int)$_SESSION['user_id'];
-$isAdmin = $_SESSION['is_admin'] ?? false;
+$isAdmin = $_SESSION['role'] ?? false;
 
 try {
     // Fetch main comments
@@ -18,11 +18,11 @@ try {
     
         SELECT 
             c.id, c.content, c.created_at, c.edited,
-            u.id AS user_id, u.username, u.profile_pic,
+            u.user_id AS user_id, u.username, u.profile_pic,
             COUNT(cl.id) AS like_count,
             SUM(cl.user_id = :user_id) AS user_liked
         FROM comments c
-        JOIN users u ON c.user_id = u.id
+        JOIN users u ON c.user_id = u.user_id
         LEFT JOIN comment_likes cl ON c.id = cl.comment_id
         WHERE c.post_id = :post_id AND c.parent_id IS NULL
         GROUP BY c.id
@@ -45,13 +45,13 @@ try {
                 c.content,
                 c.created_at,
                 c.edited,
-                u.id AS user_id,
+                u.user_id AS user_id,
                 u.username,
                 u.profile_pic,
                 COUNT(cl.id) AS like_count,
                 SUM(cl.user_id = :user_id) AS user_liked
             FROM comments c
-            JOIN users u ON c.user_id = u.id
+            JOIN users u ON c.user_id = u.user_id
             LEFT JOIN comment_likes cl ON c.id = cl.comment_id
             WHERE c.parent_id = :parent_id
             GROUP BY c.id
@@ -272,11 +272,11 @@ try {
                             $repliesStmt = $pdo->prepare("
                         SELECT 
                             c.id, c.content, c.created_at, c.edited,
-                            u.id AS user_id, u.username, u.profile_pic,
+                            u.user_id AS user_id, u.username, u.profile_pic,
                             COUNT(DISTINCT cl.id) AS like_count,
                             SUM(cl.user_id = :user_id) AS user_liked
                         FROM comments c
-                        JOIN users u ON c.user_id = u.id
+                        JOIN users u ON c.user_id = u.user_id
                         LEFT JOIN comment_likes cl ON c.id = cl.comment_id
                         WHERE c.parent_id = :parent_id
                         GROUP BY c.id

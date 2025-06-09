@@ -48,49 +48,49 @@ $isAdmin = $_SESSION['is_admin'] ?? false;
         <h1 class="mb-4">Terms of Service</h1>
         <p>Effective date: Monday 12th May, 2025</p>
 
-        <h2>1. Acceptance of Terms</h2>
+        <h3>1. Acceptance of Terms</h3>
         <p>
           By accessing or using Bits Catholic Portal., you agree to be bound by these Terms.
         </p>
 
-        <h2>2. Your Obligations</h2>
+        <h3>2. Your Obligations</h3>
         <ul>
           <li>Provide accurate registration information.</li>
           <li>Maintain confidentiality of your password.</li>
           <li>Comply with all applicable laws and regulations.</li>
         </ul>
 
-        <h2>3. User Content</h2>
+        <h3>3. User Content</h3>
         <p>
           You retain ownership of content you post, but grant us a license to display and distribute it on our platform.
         </p>
 
-        <h2>4. Prohibited Conduct</h2>
+        <h3>4. Prohibited Conduct</h3>
         <p>
           Users must not post unlawful, harassing, or infringing content.
         </p>
 
-        <h2>5. Disclaimer of Warranties</h2>
+        <h3>5. Disclaimer of Warranties</h3>
         <p>
           Our service is provided “as is” without warranties of any kind.
         </p>
 
-        <h2>6. Limitation of Liability</h2>
+        <h3>6. Limitation of Liability</h3>
         <p>
           We won’t be liable for indirect, incidental, or punitive damages arising out of your use of the service.
         </p>
 
-        <h2>7. Modifications</h2>
+        <h3>7. Modifications</h3>
         <p>
           We reserve the right to modify these Terms at any time. Continued use after changes constitutes acceptance.
         </p>
 
-        <h2>8. Governing Law</h2>
+        <h3>8. Governing Law</h3>
         <p>
           These Terms are governed by the laws of {{Your Country/State}}.
         </p>
 
-        <h2>9. Contact</h2>
+        <h3>9. Contact</h3>
         <p>
           Questions? Email us at <a href="mailto:Bits Catholic Portal.">Bits Catholic Portal.</a>.
         </p>

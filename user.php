@@ -8,7 +8,7 @@ $target_username = isset($_GET['user']) ? trim($_GET['user']) : null;
 
 // Fetch user by ID or username
 if ($target_id) {
-    $stmt = $pdo->prepare("SELECT * FROM users WHERE id = ?");
+    $stmt = $pdo->prepare("SELECT * FROM users WHERE user_id = ?");
     $stmt->execute([$target_id]);
 } elseif ($target_username) {
     $stmt = $pdo->prepare("SELECT * FROM users WHERE username = ?");
@@ -79,7 +79,7 @@ $current_user_id = $_SESSION['user_id'] ?? null;
     </div>
 </div>
 
-<?php if ($current_user_id && $current_user_id !== $user['id']): ?>
+<?php if ($current_user_id && $current_user_id !== $user['user_id']): ?>
 <script>
 document.addEventListener("DOMContentLoaded", function () {
     const btn = document.getElementById('follow-btn');

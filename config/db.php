@@ -1,7 +1,7 @@
 <?php
 
 $host = "localhost";
-$dbname = "forum_db";
+$dbname = "bits_catholic_portal";
 $username = "root";
 $password = "";
 

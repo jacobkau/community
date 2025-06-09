@@ -51,7 +51,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $params[':password'] = password_hash($password, PASSWORD_BCRYPT);
         }
 
-        $query .= " WHERE id = :id";
+        $query .= " WHERE user_id = :id";
 
         $stmt = $pdo->prepare($query);
         $stmt->execute($params);
@@ -68,7 +68,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 // For GET requests, show the settings page
-$stmt = $pdo->prepare("SELECT * FROM users WHERE id = ?");
+$stmt = $pdo->prepare("SELECT * FROM users WHERE user_id = ?");
 $stmt->execute([$_SESSION['user_id']]);
 $user = $stmt->fetch();
 

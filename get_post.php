@@ -35,7 +35,7 @@ $stmt = $pdo->prepare("
         (SELECT COUNT(*) FROM comments WHERE comments.post_id = posts.id) AS comment_count,
         EXISTS(SELECT 1 FROM likes WHERE likes.post_id = posts.id AND likes.user_id = ?) AS has_liked
     FROM posts
-    JOIN users ON posts.user_id = users.id
+    JOIN users ON posts.user_id = users.user_id
     WHERE posts.id = ?
 ");
 $stmt->execute([$_SESSION['user_id'] ?? 0, $post_id]);
@@ -197,7 +197,7 @@ require_once __DIR__ . "/includes/header.php";
                             COUNT(cl.id) AS like_count,
                             SUM(cl.user_id = ?) AS user_liked
                         FROM comments c
-                        JOIN users u ON c.user_id = u.id
+                        JOIN users u ON c.user_id = u.user_id
                         LEFT JOIN comment_likes cl ON c.id = cl.comment_id
                         WHERE c.post_id = ? AND c.parent_id IS NULL
                         GROUP BY c.id

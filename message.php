@@ -16,7 +16,7 @@ try {
                           (SELECT content FROM messages WHERE conversation_id = c.id ORDER BY created_at DESC LIMIT 1) AS last_message,
                           (SELECT created_at FROM messages WHERE conversation_id = c.id ORDER BY created_at DESC LIMIT 1) AS last_message_time
                           FROM conversations c
-                          JOIN users u ON u.id = IF(c.user1_id = ?, c.user2_id, c.user1_id)
+                          JOIN users u ON u.user_id = IF(c.user1_id = ?, c.user2_id, c.user1_id)
                           WHERE c.user1_id = ? OR c.user2_id = ?
                           ORDER BY last_message_time DESC");
     $stmt->execute([$current_user_id, $current_user_id, $current_user_id]);

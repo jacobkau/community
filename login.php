@@ -34,11 +34,12 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                     // Successful login
                     session_regenerate_id(true);
                     
-                    $_SESSION['user_id'] = $user['id'];
+                    $_SESSION['user_id'] = $user['user_id'];
                     $_SESSION['username'] = $user['username'];
                     $_SESSION['profile_pic'] = $user['profile_pic'];
                     $_SESSION['email'] = $user['email'];
                     $_SESSION['user_role'] = $user['role'];
+                    
                     
                     header("Location: index.php");
                     exit();
